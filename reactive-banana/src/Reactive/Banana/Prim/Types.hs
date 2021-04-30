@@ -11,8 +11,9 @@ import Data.Hashable
 import Data.Semigroup
 import Data.Vault.Lazy (Vault)
 import qualified Data.Vault.Lazy as Vault
-import Reactive.Banana.Prim.OrderedBag as OB (OrderedBag, empty)
 import Reactive.Banana.Type.Graph (Graph)
+import Reactive.Banana.Type.OSet (OSet)
+import qualified Reactive.Banana.Type.OSet as OSet
 import Reactive.Banana.Type.Ref
 import System.IO.Unsafe
 import System.Mem.Weak
@@ -24,7 +25,7 @@ import System.Mem.Weak
 -- | A 'Network' represents the state of a pulse/latch network,
 data Network = Network
   { nTime :: !Time, -- Current time.
-    nOutputs :: !(OrderedBag Output), -- Remember outputs to prevent garbage collection.
+    nOutputs :: !(OSet Output), -- Remember outputs to prevent garbage collection.
     nAlwaysP :: !(Maybe (Pulse ())) -- Pulse that always fires.
   }
 
@@ -36,7 +37,7 @@ emptyNetwork :: Network
 emptyNetwork =
   Network
     { nTime = next beginning,
-      nOutputs = OB.empty,
+      nOutputs = OSet.empty,
       nAlwaysP = Nothing
     }
 

@@ -16,9 +16,9 @@ import Data.Foldable (traverse_)
 import Data.List (foldl')
 import qualified Data.PQueue.Prio.Min as Q
 import Data.Vault.Lazy (Vault)
-import qualified Reactive.Banana.Prim.OrderedBag as OB
 import Reactive.Banana.Prim.Plumbing
 import Reactive.Banana.Prim.Types
+import qualified Reactive.Banana.Type.OSet as OSet
 import Reactive.Banana.Type.Ref
 import System.Mem.Weak
 
@@ -49,12 +49,13 @@ step (inputs, pulses) Network {nTime = time1, nOutputs = outputs1, nAlwaysP} =
       topologyUpdates
 
       let actions :: [(Output, EvalO)]
-          actions = OB.inOrder outputs outputs1 -- EvalO actions in proper order
+          actions =
+            OSet.inOrder outputs outputs1 -- EvalO actions in proper order
           state2 :: Network
           state2 =
             Network
               { nTime = next time1,
-                nOutputs = foldl' OB.insert outputs1 os,
+                nOutputs = foldl' OSet.insert outputs1 os,
                 nAlwaysP = Just alwaysPulse
               }
 

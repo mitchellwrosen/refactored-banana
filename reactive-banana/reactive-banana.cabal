@@ -49,6 +49,7 @@ Library
                         GeneralizedNewtypeDeriving
                         NamedFieldPuns
                         ScopedTypeVariables
+                        TupleSections
     default-language:   Haskell98
     hs-source-dirs:     src
     ghc-options:        -Wall
@@ -79,11 +80,11 @@ Library
                         Reactive.Banana.Prim.Dependencies,
                         Reactive.Banana.Prim.Evaluation,
                         Reactive.Banana.Prim.IO,
-                        Reactive.Banana.Prim.OrderedBag,
                         Reactive.Banana.Prim.Plumbing,
                         Reactive.Banana.Prim.Test,
                         Reactive.Banana.Prim.Types,
                         Reactive.Banana.Type.Graph,
+                        Reactive.Banana.Type.OSet,
                         Reactive.Banana.Type.Ref,
                         Reactive.Banana.Types
 

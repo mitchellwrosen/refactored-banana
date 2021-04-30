@@ -8,9 +8,9 @@ import Data.IORef
 import Data.List (foldl')
 import Reactive.Banana.Prim.Combinators
 import Reactive.Banana.Prim.IO
-import qualified Reactive.Banana.Prim.OrderedBag as OB
 import Reactive.Banana.Prim.Plumbing
 import Reactive.Banana.Prim.Types
+import qualified Reactive.Banana.Type.OSet as OSet
 
 {-----------------------------------------------------------------------------
    Compilation
@@ -33,7 +33,7 @@ compile m state1 = do
   let state2 =
         Network
           { nTime = next time1,
-            nOutputs = foldl' OB.insert outputs1 os,
+            nOutputs = foldl' OSet.insert outputs1 os,
             nAlwaysP = Just theAlwaysP
           }
   return (a, state2)
