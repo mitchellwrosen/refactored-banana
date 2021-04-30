@@ -40,6 +40,8 @@ Source-repository head
     subdir:             reactive-banana/
 
 Library
+    default-extensions: BlockArguments
+                        LambdaCase
     default-language:   Haskell98
     hs-source-dirs:     src
 
