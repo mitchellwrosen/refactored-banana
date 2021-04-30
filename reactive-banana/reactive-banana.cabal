@@ -45,11 +45,14 @@ Library
                         DeriveFunctor
                         DerivingStrategies
                         DerivingVia
-                        LambdaCase
+                        FlexibleInstances
+                        GADTs
                         GeneralizedNewtypeDeriving
+                        LambdaCase
                         NamedFieldPuns
                         ScopedTypeVariables
                         TupleSections
+                        TypeSynonymInstances
     default-language:   Haskell98
     hs-source-dirs:     src
     ghc-options:        -Wall

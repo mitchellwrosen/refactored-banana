@@ -37,7 +37,6 @@ module Reactive.Banana.Prim
     readLatch,
 
     -- * Pulse
-    PulseRef,
     neverP,
     alwaysP,
     mapP,

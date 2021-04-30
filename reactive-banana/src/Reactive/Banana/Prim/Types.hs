@@ -1,9 +1,33 @@
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-
-module Reactive.Banana.Prim.Types where
+module Reactive.Banana.Prim.Types
+  ( Build,
+    BuildIO,
+    BuildR,
+    BuildW (..),
+    DependencyBuilder,
+    EvalL,
+    EvalO,
+    EvalP,
+    EvalPW,
+    Future,
+    Latch' (..),
+    Latch,
+    LatchWrite (..),
+    Level,
+    Network (..),
+    Node (..),
+    Output (..),
+    Pulse (..),
+    Step,
+    Time,
+    agesAgo,
+    beginning,
+    emptyNetwork,
+    ground,
+    mkWeakNodeValue,
+    next,
+    printNode,
+  )
+where
 
 import Control.Monad.Trans.RWSIO
 import Control.Monad.Trans.ReaderWriterIO
@@ -24,9 +48,12 @@ import System.Mem.Weak
 
 -- | A 'Network' represents the state of a pulse/latch network,
 data Network = Network
-  { nTime :: !Time, -- Current time.
-    nOutputs :: !(OSet Output), -- Remember outputs to prevent garbage collection.
-    nAlwaysP :: !(Maybe (PulseRef ())) -- Pulse that always fires.
+  { -- | Current time.
+    nTime :: !Time,
+    -- | Remember outputs to prevent garbage collection.
+    nOutputs :: !(OSet (Ref Output)),
+    -- | Pulse that always fires.
+    nAlwaysP :: !(Maybe (Ref (Pulse ())))
   }
 
 type EvalNetwork a = Network -> IO (a, Network)
@@ -45,9 +72,9 @@ type Build = RWIO BuildR BuildW
 
 -- ( current time
 -- , pulse that always fires)
-type BuildR = (Time, PulseRef ())
+type BuildR = (Time, Ref (Pulse ()))
 
-newtype BuildW = BuildW (DependencyBuilder, [Output], IO (), Maybe (Build ()))
+newtype BuildW = BuildW (DependencyBuilder, [Ref Output], IO (), Maybe (Build ()))
 
 -- reader : current timestamp
 -- writer : ( actions that change the network topology
@@ -65,7 +92,7 @@ instance Monoid BuildW where
 
 type BuildIO = Build
 
-type DependencyBuilder = (Endo (Graph SomeNode), [(SomeNode, SomeNode)])
+type DependencyBuilder = (Endo (Graph Node), [(Node, Node)])
 
 {-----------------------------------------------------------------------------
     Synonyms
@@ -77,31 +104,20 @@ type Level = Int
 ground :: Level
 ground = 0
 
--- | Lens-like functionality.
-data Lens s a = Lens (s -> a) (a -> s -> s)
-
-set :: Lens s a -> a -> s -> s
-set (Lens _ f) = f
-
-update :: Lens s a -> (a -> a) -> s -> s
-update (Lens lg lf) f s = lf (f $ lg s) s
-
 {-----------------------------------------------------------------------------
     Pulse and Latch
 ------------------------------------------------------------------------------}
-type PulseRef a = Ref (Pulse a)
-
 data Pulse a = Pulse
   { _keyP :: Vault.Key (Maybe a), -- Key to retrieve pulse from cache.
     _seenP :: !Time, -- See note [Timestamp].
     _evalP :: EvalP (Maybe a), -- Calculate current value.
-    _childrenP :: [Weak SomeNode], -- Weak references to child nodes.
-    _parentsP :: [Weak SomeNode], -- Weak reference to parent nodes.
+    _childrenP :: [Weak Node], -- Weak references to child nodes.
+    _parentsP :: [Weak Node], -- Weak reference to parent nodes.
     _levelP :: !Level, -- Priority in evaluation order.
     _nameP :: String -- Name for debugging.
   }
 
-instance Show (PulseRef a) where
+instance Show (Ref (Pulse a)) where
   show p = _nameP (unsafePerformIO $ readRef p) ++ " " ++ show (hashWithSalt 0 p)
 
 type Latch a = Ref (Latch' a)
@@ -112,63 +128,39 @@ data Latch' a = Latch
     _evalL :: EvalL a -- Recalculate current latch value.
   }
 
-type LatchWrite = Ref LatchWrite'
-
-data LatchWrite' = forall a.
-  LatchWrite
+data LatchWrite a = LatchWrite
   { _evalLW :: EvalP a, -- Calculate value to write.
     _latchLW :: Weak (Latch a) -- Destination 'Latch' to write to.
   }
 
-type Output = Ref Output'
-
-newtype Output' = Output
+newtype Output = Output
   { _evalO :: EvalP EvalO
   }
 
-data SomeNode
-  = forall a. P (PulseRef a)
-  | L LatchWrite
-  | O Output
+data Node where
+  P :: Ref (Pulse a) -> Node
+  L :: Ref (LatchWrite a) -> Node
+  O :: Ref Output -> Node
 
-instance Hashable SomeNode where
+instance Hashable Node where
   hashWithSalt s (P x) = hashWithSalt s x
   hashWithSalt s (L x) = hashWithSalt s x
   hashWithSalt s (O x) = hashWithSalt s x
 
-instance Eq SomeNode where
+instance Eq Node where
   P x == P y = equalRef x y
   L x == L y = equalRef x y
   O x == O y = equalRef x y
   x == y = error (unsafePerformIO (printNode x) ++ " /= " ++ unsafePerformIO (printNode y))
 
 {-# INLINE mkWeakNodeValue #-}
-mkWeakNodeValue :: SomeNode -> v -> IO (Weak v)
+mkWeakNodeValue :: Node -> v -> IO (Weak v)
 mkWeakNodeValue (P x) = mkWeakRefValue x
 mkWeakNodeValue (L x) = mkWeakRefValue x
 mkWeakNodeValue (O x) = mkWeakRefValue x
 
--- Lenses for various parameters
-seenP :: Lens (Pulse a) Time
-seenP = Lens _seenP (\a s -> s {_seenP = a})
-
-seenL :: Lens (Latch' a) Time
-seenL = Lens _seenL (\a s -> s {_seenL = a})
-
-valueL :: Lens (Latch' a) a
-valueL = Lens _valueL (\a s -> s {_valueL = a})
-
-parentsP :: Lens (Pulse a) [Weak SomeNode]
-parentsP = Lens _parentsP (\a s -> s {_parentsP = a})
-
-childrenP :: Lens (Pulse a) [Weak SomeNode]
-childrenP = Lens _childrenP (\a s -> s {_childrenP = a})
-
-levelP :: Lens (Pulse a) Int
-levelP = Lens _levelP (\a s -> s {_levelP = a})
-
 -- | Evaluation monads.
-type EvalPW = (IO (), [(Output, EvalO)])
+type EvalPW = (IO (), [(Ref Output, EvalO)])
 
 type EvalO = Future (IO ())
 
@@ -187,7 +179,7 @@ type EvalL = RWIO () Time
 {-----------------------------------------------------------------------------
     Show functions for debugging
 ------------------------------------------------------------------------------}
-printNode :: SomeNode -> IO String
+printNode :: Node -> IO String
 printNode (P p) = _nameP <$> readRef p
 printNode (L _) = return "L"
 printNode (O _) = return "O"

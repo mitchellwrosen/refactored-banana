@@ -11,6 +11,7 @@ import Reactive.Banana.Prim.IO
 import Reactive.Banana.Prim.Plumbing
 import Reactive.Banana.Prim.Types
 import qualified Reactive.Banana.Type.OSet as OSet
+import Reactive.Banana.Type.Ref (Ref)
 
 {-----------------------------------------------------------------------------
    Compilation
@@ -48,7 +49,7 @@ compile m state1 = do
 --
 -- Note: The result is not computed lazily, for similar reasons
 -- that the 'sequence' function does not compute its result lazily.
-interpret :: (PulseRef a -> BuildIO (PulseRef b)) -> [Maybe a] -> IO [Maybe b]
+interpret :: (Ref (Pulse a) -> BuildIO (Ref (Pulse b))) -> [Maybe a] -> IO [Maybe b]
 interpret f xs = do
   o <- newIORef Nothing
   let network = do
@@ -75,13 +76,13 @@ interpret f xs = do
 -- Make sure that outputs are evaluated, but don't display their values.
 --
 -- Mainly useful for testing whether there are space leaks.
-runSpaceProfile :: Show b => (PulseRef a -> BuildIO (PulseRef b)) -> [a] -> IO ()
+runSpaceProfile :: Show b => (Ref (Pulse a) -> BuildIO (Ref (Pulse b))) -> [a] -> IO ()
 runSpaceProfile f xs = do
   let g = do
         (p1, fire) <- newInput
         p2 <- f p1
         p3 <- mapP return p2 -- wrap into Future
-        addHandler p3 (\b -> void $ evaluate b)
+        addHandler p3 (void . evaluate)
         return fire
   (step, network) <- compile g emptyNetwork
 

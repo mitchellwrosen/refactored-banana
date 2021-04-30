@@ -18,7 +18,7 @@ import Reactive.Banana.Type.Ref
 --
 -- Together with 'addHandler', this function can be used to operate with
 -- pulses as with standard callback-based events.
-newInput :: forall a. Build (PulseRef a, a -> Step)
+newInput :: forall a. Build (Ref (Pulse a), a -> Step)
 newInput = mdo
   always <- alwaysP
   key <- liftIO Vault.newKey
@@ -43,7 +43,7 @@ newInput = mdo
 -- | Register a handler to be executed whenever a pulse occurs.
 --
 -- The pulse may refer to future latch values.
-addHandler :: PulseRef (Future a) -> (a -> IO ()) -> Build ()
+addHandler :: Ref (Pulse (Future a)) -> (a -> IO ()) -> Build ()
 addHandler p1 f = do
   p2 <- mapP (fmap f) p1
   addOutput p2

@@ -11,16 +11,18 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader
 import Data.IORef
-import Reactive.Banana.Prim (Build, Future, Latch, PulseRef)
+import Reactive.Banana.Prim (Build, Future, Latch)
 import qualified Reactive.Banana.Prim as Prim
+import Reactive.Banana.Prim.Types (Pulse)
+import Reactive.Banana.Type.Ref (Ref)
 import System.IO.Unsafe (unsafePerformIO)
 
 {-----------------------------------------------------------------------------
     Types
 ------------------------------------------------------------------------------}
-type Behavior a = Moment (Latch a, PulseRef ())
+type Behavior a = Moment (Latch a, Ref (Pulse ()))
 
-type Event a = Moment (PulseRef a)
+type Event a = Moment (Ref (Pulse a))
 
 type Moment = ReaderT EventNetwork Build
 
@@ -31,7 +33,7 @@ interpret :: forall a b. (Event a -> Moment (Event b)) -> [Maybe a] -> IO [Maybe
 interpret f =
   Prim.interpret \pulse -> runReaderT (g pulse) undefined
   where
-    g :: PulseRef a -> Moment (PulseRef b)
+    g :: Ref (Pulse a) -> Moment (Ref (Pulse b))
     g pulse =
       join (f (pure pulse))
 
@@ -204,7 +206,7 @@ initialBLater :: Behavior a -> Moment a
 initialBLater behavior =
   mapReaderT Prim.buildLaterReadNow (valueB behavior)
 
-executeP :: PulseRef (Moment a) -> Moment (PulseRef a)
+executeP :: Ref (Pulse (Moment a)) -> Moment (Ref (Pulse a))
 executeP pulse1 = do
   network <- ask
   lift do
@@ -251,7 +253,7 @@ switchB b e = do
       pr <- merge c1 =<< merge c2 c3
       return (lr, pr)
 
-merge :: PulseRef () -> PulseRef () -> Build (PulseRef ())
+merge :: Ref (Pulse ()) -> Ref (Pulse ()) -> Build (Ref (Pulse ()))
 merge =
   Prim.unionWithP (\_ _ -> ())
 

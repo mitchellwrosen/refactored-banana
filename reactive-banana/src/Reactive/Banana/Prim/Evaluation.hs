@@ -30,7 +30,7 @@ type Queue = Q.MinPQueue Level
 
 -- | Evaluate all the pulses in the graph,
 -- Rebuild the graph as necessary and update the latch values.
-step :: ([SomeNode], Vault) -> Network -> IO (IO (), Network)
+step :: ([Node], Vault) -> Network -> IO (IO (), Network)
 step (inputs, pulses) Network {nTime = time1, nOutputs = outputs1, nAlwaysP} =
   -- we assume that this has been built already
   case nAlwaysP of
@@ -48,10 +48,12 @@ step (inputs, pulses) Network {nTime = time1, nOutputs = outputs1, nAlwaysP} =
       -- rearrange graph topology
       topologyUpdates
 
-      let actions :: [(Output, EvalO)]
+      let actions :: [(Ref Output, EvalO)]
           actions =
-            OSet.inOrder outputs outputs1 -- EvalO actions in proper order
-          state2 :: Network
+            -- EvalO actions in proper order
+            OSet.inOrder outputs outputs1
+
+      let state2 :: Network
           state2 =
             Network
               { nTime = next time1,
@@ -69,10 +71,10 @@ runEvalOs = traverse_ join
 ------------------------------------------------------------------------------}
 
 -- | Update all pulses in the graph, starting from a given set of nodes
-evaluatePulses :: [SomeNode] -> EvalP ()
+evaluatePulses :: [Node] -> EvalP ()
 evaluatePulses roots = RWS.R $ \r -> go r =<< insertNodes r roots Q.empty
   where
-    go :: RWS.Tuple BuildR (EvalPW, BuildW) Vault -> Queue SomeNode -> IO ()
+    go :: RWS.Tuple BuildR (EvalPW, BuildW) Vault -> Queue Node -> IO ()
     go r q0 =
       case Q.minView q0 of
         Nothing -> return ()
@@ -83,7 +85,7 @@ evaluatePulses roots = RWS.R $ \r -> go r =<< insertNodes r roots Q.empty
 
 -- | Recalculate a given node and return all children nodes
 -- that need to evaluated subsequently.
-evaluateNode :: SomeNode -> EvalP [SomeNode]
+evaluateNode :: Node -> EvalP [Node]
 evaluateNode (P p) =
   do
     Pulse {..} <- liftIO (readRef p)
@@ -112,10 +114,10 @@ evaluateNode (O o) = do
   return []
 
 -- | Insert nodes into the queue
-insertNodes :: RWS.Tuple BuildR (EvalPW, BuildW) Vault -> [SomeNode] -> Queue SomeNode -> IO (Queue SomeNode)
+insertNodes :: RWS.Tuple BuildR (EvalPW, BuildW) Vault -> [Node] -> Queue Node -> IO (Queue Node)
 insertNodes (RWS.Tuple (time, _) _ _) = go
   where
-    go :: [SomeNode] -> Queue SomeNode -> IO (Queue SomeNode)
+    go :: [Node] -> Queue Node -> IO (Queue Node)
     go [] q = return q
     go (node@(P p) : xs) q = do
       pulse@Pulse {_levelP, _seenP} <- readRef p

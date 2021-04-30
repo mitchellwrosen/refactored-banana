@@ -24,7 +24,7 @@ import System.IO.Unsafe
 ------------------------------------------------------------------------------}
 
 -- | Make 'Pulse' from evaluation function
-newPulse :: String -> EvalP (Maybe a) -> IO (PulseRef a)
+newPulse :: String -> EvalP (Maybe a) -> IO (Ref (Pulse a))
 newPulse name eval = do
   key <- Vault.newKey
   newRef
@@ -49,7 +49,7 @@ this is a recipe for desaster.
 -}
 
 -- | 'Pulse' that never fires.
-neverP :: IO (PulseRef a)
+neverP :: IO (Ref (Pulse a))
 neverP = do
   key <- Vault.newKey
   newRef
@@ -75,7 +75,7 @@ pureL a =
         }
 
 -- | Make new 'Latch' that can be updated by a 'Pulse'
-newLatch :: forall a. a -> IO (PulseRef a -> Build (), Latch a)
+newLatch :: forall a. a -> IO (Ref (Pulse a) -> Build (), Latch a)
 newLatch a = mdo
   latch <-
     newRef
@@ -87,7 +87,7 @@ newLatch a = mdo
             RW.tell _seenL -- indicate timestamp
             return _valueL -- indicate value
         }
-  let updateOn :: PulseRef a -> Build ()
+  let updateOn :: Ref (Pulse a) -> Build ()
       updateOn p = do
         lw <-
           liftIO do
@@ -133,7 +133,7 @@ cachedLatch eval =
 -- | Add a new output that depends on a 'Pulse'.
 --
 -- TODO: Return function to unregister the output again.
-addOutput :: PulseRef EvalO -> Build ()
+addOutput :: Ref (Pulse EvalO) -> Build ()
 addOutput p = do
   o <-
     liftIO $
@@ -147,7 +147,7 @@ addOutput p = do
 {-----------------------------------------------------------------------------
     Build monad
 ------------------------------------------------------------------------------}
-runBuildIO :: BuildR -> BuildIO a -> IO (a, IO (), [Output])
+runBuildIO :: BuildR -> BuildIO a -> IO (a, IO (), [Ref Output])
 runBuildIO i m0 = do
   (a, BuildW (topologyUpdates, os, liftIOLaters, _)) <- unfold mempty m0
   liftIOLaters -- execute late IOs
@@ -184,10 +184,10 @@ buildLaterReadNow m = do
 getTimeB :: Build Time
 getTimeB = (\(x, _) -> x) <$> RW.ask
 
-alwaysP :: Build (PulseRef ())
+alwaysP :: Build (Ref (Pulse ()))
 alwaysP = (\(_, x) -> x) <$> RW.ask
 
-dependOn :: PulseRef child -> PulseRef parent -> Build ()
+dependOn :: Ref (Pulse child) -> Ref (Pulse parent) -> Build ()
 dependOn child parent =
   P parent `addChild` P child
 
@@ -197,11 +197,11 @@ keepAlive :: Ref child -> Ref parent -> IO ()
 keepAlive child parent =
   void (mkWeakRefValue child parent)
 
-addChild :: SomeNode -> SomeNode -> Build ()
+addChild :: Node -> Node -> Build ()
 addChild parent child =
   RW.tell $ BuildW (Deps.addChild parent child, mempty, mempty, mempty)
 
-changeParent :: PulseRef child -> PulseRef parent -> Build ()
+changeParent :: Ref (Pulse child) -> Ref (Pulse parent) -> Build ()
 changeParent node parent =
   RW.tell $ BuildW (Deps.changeParent node parent, mempty, mempty, mempty)
 
@@ -240,7 +240,7 @@ liftBuildP m = RWS.rws $ \r2 s -> do
 askTime :: EvalP Time
 askTime = fst <$> RWS.ask
 
-readPulseP :: PulseRef a -> EvalP (Maybe a)
+readPulseP :: Ref (Pulse a) -> EvalP (Maybe a)
 readPulseP p = do
   Pulse {_keyP} <- liftIO (readRef p)
   vault <- RWS.get
@@ -254,7 +254,7 @@ writePulseP key a = do
 rememberLatchUpdate :: IO () -> EvalP ()
 rememberLatchUpdate x = RWS.tell ((x, mempty), mempty)
 
-rememberOutput :: (Output, EvalO) -> EvalP ()
+rememberOutput :: (Ref Output, EvalO) -> EvalP ()
 rememberOutput x = RWS.tell ((mempty, [x]), mempty)
 
 -- worker wrapper to break sharing and support better inlining

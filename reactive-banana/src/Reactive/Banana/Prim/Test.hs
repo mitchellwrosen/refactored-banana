@@ -6,6 +6,8 @@
 module Reactive.Banana.Prim.Test where
 
 import Reactive.Banana.Prim
+import Reactive.Banana.Prim.Types (Pulse)
+import Reactive.Banana.Type.Ref (Ref)
 
 main :: IO ()
 main = test_space1
@@ -13,7 +15,7 @@ main = test_space1
 {-----------------------------------------------------------------------------
     Functionality tests
 ------------------------------------------------------------------------------}
-test_accumL1 :: PulseRef Int -> BuildIO (PulseRef Int)
+test_accumL1 :: Ref (Pulse Int) -> BuildIO (Ref (Pulse Int))
 test_accumL1 p1 = do
   p2 <- mapP (+) p1
   (l1, _) <- accumL 0 p2
@@ -21,7 +23,7 @@ test_accumL1 p1 = do
   p3 <- applyP l2 p1
   return p3
 
-test_recursion1 :: PulseRef () -> BuildIO (PulseRef Int)
+test_recursion1 :: Ref (Pulse ()) -> BuildIO (Ref (Pulse Int))
 test_recursion1 p1 = mdo
   p2 <- applyP l2 p1
   p3 <- mapP (const (+ 1)) p2
