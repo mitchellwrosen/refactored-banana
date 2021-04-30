@@ -83,7 +83,7 @@ newLatch a = mdo
         { _seenL = beginning,
           _valueL = a,
           _evalL = do
-            Latch {_seenL, _valueL} <- readRef latch
+            Latch {_seenL, _valueL} <- liftIO (readRef latch)
             RW.tell _seenL -- indicate timestamp
             return _valueL -- indicate value
         }
@@ -221,7 +221,7 @@ readLatch latch = do
 
 getValueL :: Latch a -> EvalL a
 getValueL latch = do
-  Latch {_evalL} <- readRef latch
+  Latch {_evalL} <- liftIO (readRef latch)
   _evalL
 
 {-----------------------------------------------------------------------------
@@ -242,8 +242,9 @@ askTime = fst <$> RWS.ask
 
 readPulseP :: Pulse a -> EvalP (Maybe a)
 readPulseP p = do
-  Pulse {_keyP} <- readRef p
-  join . Vault.lookup _keyP <$> RWS.get
+  Pulse {_keyP} <- liftIO (readRef p)
+  vault <- RWS.get
+  pure (join (Vault.lookup _keyP vault))
 
 writePulseP :: Vault.Key (Maybe a) -> Maybe a -> EvalP ()
 writePulseP key a = do

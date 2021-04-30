@@ -2,9 +2,6 @@
     reactive-banana
 ------------------------------------------------------------------------------}
 {-# LANGUAGE BangPatterns #-}
-{-----------------------------------------------------------------------------
-    reactive-banana
-------------------------------------------------------------------------------}
 {-# LANGUAGE RecordWildCards #-}
 
 module Reactive.Banana.Prim.Evaluation
@@ -88,7 +85,7 @@ evaluatePulses roots = RWS.R $ \r -> go r =<< insertNodes r roots Q.empty
 evaluateNode :: SomeNode -> EvalP [SomeNode]
 evaluateNode (P p) =
   do
-    Pulse {..} <- readRef p
+    Pulse {..} <- liftIO (readRef p)
     ma <- _evalP
     writePulseP _keyP ma
     case ma of
@@ -96,7 +93,7 @@ evaluateNode (P p) =
       Just _ -> liftIO $ deRefWeaks _childrenP
 evaluateNode (L lw) = do
   time <- askTime
-  LatchWrite {..} <- readRef lw
+  LatchWrite {..} <- liftIO (readRef lw)
   mlatch <- liftIO $ deRefWeak _latchLW -- retrieve destination latch
   case mlatch of
     Nothing -> return ()
@@ -108,7 +105,7 @@ evaluateNode (L lw) = do
           a `seq` l {_seenL = time, _valueL = a}
   return []
 evaluateNode (O o) = do
-  Output {..} <- readRef o
+  Output {..} <- liftIO (readRef o)
   m <- _evalO -- calculate output action
   rememberOutput (o, m)
   return []
