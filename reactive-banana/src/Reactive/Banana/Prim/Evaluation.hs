@@ -73,7 +73,7 @@ runEvalOs = sequence_ . map join
 
 -- | Update all pulses in the graph, starting from a given set of nodes
 evaluatePulses :: [SomeNode] -> EvalP ()
-evaluatePulses roots = wrapEvalP $ \r -> go r =<< insertNodes r roots Q.empty
+evaluatePulses roots = RWS.R $ \r -> go r =<< insertNodes r roots Q.empty
   where
     go :: RWS.Tuple BuildR (EvalPW, BuildW) Lazy.Vault -> Queue SomeNode -> IO ()
     go r q =

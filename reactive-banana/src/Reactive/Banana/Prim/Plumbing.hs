@@ -248,11 +248,11 @@ getValueL latch = do
 ------------------------------------------------------------------------------}
 runEvalP :: Lazy.Vault -> EvalP a -> Build (a, EvalPW)
 runEvalP s1 m = RW.readerWriterIO $ \r2 -> do
-  (a, _, (w1, w2)) <- RWS.runRWSIOT m r2 s1
+  (a, _, (w1, w2)) <- RWS.runRWSIO m r2 s1
   return ((a, w1), w2)
 
 liftBuildP :: Build a -> EvalP a
-liftBuildP m = RWS.rwsT $ \r2 s -> do
+liftBuildP m = RWS.rws $ \r2 s -> do
   (a, w2) <- RW.runReaderWriterIO m r2
   return (a, s, (mempty, w2))
 
@@ -282,8 +282,5 @@ rememberOutput :: (Output, EvalO) -> EvalP ()
 rememberOutput x = RWS.tell ((mempty, [x]), mempty)
 
 -- worker wrapper to break sharing and support better inlining
-unwrapEvalP :: RWS.Tuple r w s -> RWS.RWSIOT r w s m a -> m a
+unwrapEvalP :: RWS.Tuple r w s -> RWS.RWSIO r w s a -> IO a
 unwrapEvalP r m = RWS.run m r
-
-wrapEvalP :: (RWS.Tuple r w s -> m a) -> RWS.RWSIOT r w s m a
-wrapEvalP m = RWS.R m

@@ -41,7 +41,11 @@ Source-repository head
 
 Library
     default-extensions: BlockArguments
+                        DeriveFunctor
+                        DerivingStrategies
+                        DerivingVia
                         LambdaCase
+                        GeneralizedNewtypeDeriving
                         ScopedTypeVariables
     default-language:   Haskell98
     hs-source-dirs:     src
