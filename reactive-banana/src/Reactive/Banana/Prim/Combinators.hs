@@ -30,9 +30,6 @@ import Reactive.Banana.Prim.Plumbing
 import qualified Reactive.Banana.Prim.Plumbing (pureL)
 import Reactive.Banana.Prim.Types (Build, EvalP, Future, Latch, Pulse)
 
--- debug s = trace s
-debug s = id
-
 {-----------------------------------------------------------------------------
     Combinators - basic
 ------------------------------------------------------------------------------}
