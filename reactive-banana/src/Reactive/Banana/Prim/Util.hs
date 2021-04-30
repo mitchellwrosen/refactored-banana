@@ -2,20 +2,25 @@
 {-----------------------------------------------------------------------------
     reactive-banana
 ------------------------------------------------------------------------------}
-{-# LANGUAGE MagicHash, UnboxedTuples #-}
+{-# LANGUAGE MagicHash #-}
+{-----------------------------------------------------------------------------
+    reactive-banana
+------------------------------------------------------------------------------}
+{-# LANGUAGE UnboxedTuples #-}
+
 module Reactive.Banana.Prim.Util where
 
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           Data.Hashable
-import           Data.IORef
-import           Data.Maybe                    (catMaybes)
-import           Data.Unique.Really
-import qualified GHC.Base               as GHC
-import qualified GHC.IORef              as GHC
-import qualified GHC.STRef              as GHC
-import qualified GHC.Weak               as GHC
-import           System.Mem.Weak
+import Control.Monad
+import Control.Monad.IO.Class
+import Data.Hashable
+import Data.IORef
+import Data.Maybe (catMaybes)
+import Data.Unique.Really
+import qualified GHC.Base as GHC
+import qualified GHC.IORef as GHC
+import qualified GHC.STRef as GHC
+import qualified GHC.Weak as GHC
+import System.Mem.Weak
 
 debug :: MonadIO m => String -> m ()
 -- debug = liftIO . putStrLn
@@ -29,7 +34,7 @@ nop = return ()
 ------------------------------------------------------------------------------}
 data Ref a = Ref !(IORef a) !Unique
 
-instance Hashable (Ref a) where hashWithSalt s (Ref _ u) = hashWithSalt s u 
+instance Hashable (Ref a) where hashWithSalt s (Ref _ u) = hashWithSalt s u
 
 equalRef :: Ref a -> Ref b -> Bool
 equalRef (Ref _ a) (Ref _ b) = a == b

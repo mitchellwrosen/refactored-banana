@@ -1,68 +1,87 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-----------------------------------------------------------------------------
     reactive-banana
 ------------------------------------------------------------------------------}
 {-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 
-module Reactive.Banana.Combinators (
-    -- * Synopsis
+module Reactive.Banana.Combinators
+  ( -- * Synopsis
     -- $synopsis
 
     -- * Core Combinators
+
     -- ** Event and Behavior
-    Event, Behavior,
+    Event,
+    Behavior,
     interpret,
 
     -- ** First-order
+
     -- | This subsections lists the primitive first-order combinators for FRP.
     -- The 'Functor', 'Applicative' and 'Monoid' instances are also part of this,
     -- but they are documented at the types 'Event' and 'Behavior'.
     module Control.Applicative,
     module Data.Semigroup,
-    never, unionWith, filterE,
+    never,
+    unionWith,
+    filterE,
     apply,
 
     -- ** Moment and accumulation
-    Moment, MonadMoment(..),
-    accumE, stepper,
+    Moment,
+    MonadMoment (..),
+    accumE,
+    stepper,
 
     -- ** Recursion
     -- $recursion
 
     -- ** Higher-order
-    valueB, valueBLater, observeE, switchE, switchB,
+    valueB,
+    valueBLater,
+    observeE,
+    switchE,
+    switchB,
 
     -- * Derived Combinators
+
     -- ** Infix operators
-    (<@>), (<@),
+    (<@>),
+    (<@),
+
     -- ** Filtering
-    filterJust, filterApply, whenE, split,
+    filterJust,
+    filterApply,
+    whenE,
+    split,
+
     -- ** Accumulation
     -- $Accumulation.
-    unions, accumB, mapAccum,
-    ) where
+    unions,
+    accumB,
+    mapAccum,
+  )
+where
 
 import Control.Applicative
 import Control.Monad
-import Data.Maybe          (isJust, catMaybes)
+import Data.Maybe (catMaybes, isJust)
 import Data.Semigroup
-
 import qualified Reactive.Banana.Internal.Combinators as Prim
-import           Reactive.Banana.Types
+import Reactive.Banana.Types
 
 {-----------------------------------------------------------------------------
     Introduction
 ------------------------------------------------------------------------------}
-{-$synopsis
 
-The main types and combinators of Functional Reactive Programming (FRP).
-
-At its core, FRP is about two data types 'Event' and 'Behavior'
-and the various ways to combine them.
-There is also a third type 'Moment',
-which is necessary for the higher-order combinators.
-
--}
+-- $synopsis
+--
+-- The main types and combinators of Functional Reactive Programming (FRP).
+--
+-- At its core, FRP is about two data types 'Event' and 'Behavior'
+-- and the various ways to combine them.
+-- There is also a third type 'Moment',
+-- which is necessary for the higher-order combinators.
 
 -- Event
 -- Behavior
@@ -70,6 +89,7 @@ which is necessary for the higher-order combinators.
 {-----------------------------------------------------------------------------
     Interpetation
 ------------------------------------------------------------------------------}
+
 -- | Interpret an event processing function.
 -- Useful for testing.
 --
@@ -79,6 +99,7 @@ which is necessary for the higher-order combinators.
 -- See source code for the sordid details.
 interpret :: (Event a -> Moment (Event b)) -> [Maybe a] -> IO [Maybe b]
 interpret f xs = Prim.interpret (fmap unE . unM . f . E) xs
+
 -- FIXME: I would love to remove the 'IO' from the type signature,
 -- but unfortunately, it is possible that the argument to interpret
 -- returns an Event that was created in the context of an existing network, e.g.
@@ -94,11 +115,12 @@ interpret f xs = Prim.interpret (fmap unE . unM . f . E) xs
 {-----------------------------------------------------------------------------
     Core combinators
 ------------------------------------------------------------------------------}
+
 -- | Event that never occurs.
 -- Semantically,
 --
 -- > never = []
-never    :: Event a
+never :: Event a
 never = E Prim.never
 
 -- | Merge two event streams of the same type.
@@ -121,7 +143,7 @@ filterJust = E . Prim.filterJust . unE
 -- Semantically,
 --
 -- > filterE p es = [(time,a) | (time,a) <- es, p a]
-filterE   :: (a -> Bool) -> Event a -> Event a
+filterE :: (a -> Bool) -> Event a -> Event a
 filterE p = filterJust . fmap (\x -> if p x then Just x else Nothing)
 
 -- | Apply a time-varying function to a stream of events.
@@ -170,58 +192,56 @@ stepper a = liftMoment . M . fmap B . Prim.stepperB a . unE
 accumE :: MonadMoment m => a -> Event (a -> a) -> m (Event a)
 accumE acc = liftMoment . M . fmap E . Prim.accumE acc . unE
 
-{-$recursion
-
-/Recursion/ is a very important technique in FRP that is not apparent
-from the type signatures.
-
-Here is a prototypical example. It shows how the 'accumE' can be expressed
-in terms of the 'stepper' and 'apply' functions by using recursion:
-
-> accumE a e1 = mdo
->    let e2 = (\a f -> f a) <$> b <@> e1
->    b <- stepper a e2
->    return e2
-
-(The @mdo@ notation refers to /value recursion/ in a monad.
-The 'MonadFix' instance for the 'Moment' class enables this kind of recursive code.)
-(Strictly speaking, this also means that 'accumE' is not a primitive,
-because it can be expressed in terms of other combinators.)
-
-This general pattern appears very often in practice:
-A Behavior (here @b@) controls what value is put into an Event (here @e2@),
-but at the same time, the Event contributes to changes in this Behavior.
-Modeling this situation requires recursion.
-
-For another example, consider a vending machine that sells banana juice.
-The amount that the customer still has to pay for a juice
-is modeled by a Behavior @bAmount@.
-Whenever the customer inserts a coin into the machine,
-an Event @eCoin@ occurs, and the amount will be reduced.
-Whenver the amount goes below zero, an Event @eSold@ will occur,
-indicating the release of a bottle of fresh banana juice,
-and the amount to be paid will be reset to the original price.
-The model requires recursion, and can be expressed in code as follows:
-
-> mdo
->     let price = 50 :: Int
->     bAmount  <- accumB price $ unions
->                   [ subtract 10 <$ eCoin
->                   , const price <$ eSold ]
->     let eSold = whenE ((<= 0) <$> bAmount) eCoin
-
-On one hand, the Behavior @bAmount@ controls whether the Event @eSold@
-occcurs at all; the bottle of banana juice is unavailable to penniless customers.
-But at the same time, the Event @eSold@ will cause a reset
-of the Behavior @bAmount@, so both depend on each other.
-
-Recursive code like this examples works thanks to the semantics of 'stepper'.
-In general, /mutual recursion/ between several 'Event's and 'Behavior's
-is always well-defined,
-as long as an Event depends on itself only /via/ a Behavior,
-and vice versa.
-
--}
+-- $recursion
+--
+-- /Recursion/ is a very important technique in FRP that is not apparent
+-- from the type signatures.
+--
+-- Here is a prototypical example. It shows how the 'accumE' can be expressed
+-- in terms of the 'stepper' and 'apply' functions by using recursion:
+--
+-- > accumE a e1 = mdo
+-- >    let e2 = (\a f -> f a) <$> b <@> e1
+-- >    b <- stepper a e2
+-- >    return e2
+--
+-- (The @mdo@ notation refers to /value recursion/ in a monad.
+-- The 'MonadFix' instance for the 'Moment' class enables this kind of recursive code.)
+-- (Strictly speaking, this also means that 'accumE' is not a primitive,
+-- because it can be expressed in terms of other combinators.)
+--
+-- This general pattern appears very often in practice:
+-- A Behavior (here @b@) controls what value is put into an Event (here @e2@),
+-- but at the same time, the Event contributes to changes in this Behavior.
+-- Modeling this situation requires recursion.
+--
+-- For another example, consider a vending machine that sells banana juice.
+-- The amount that the customer still has to pay for a juice
+-- is modeled by a Behavior @bAmount@.
+-- Whenever the customer inserts a coin into the machine,
+-- an Event @eCoin@ occurs, and the amount will be reduced.
+-- Whenver the amount goes below zero, an Event @eSold@ will occur,
+-- indicating the release of a bottle of fresh banana juice,
+-- and the amount to be paid will be reset to the original price.
+-- The model requires recursion, and can be expressed in code as follows:
+--
+-- > mdo
+-- >     let price = 50 :: Int
+-- >     bAmount  <- accumB price $ unions
+-- >                   [ subtract 10 <$ eCoin
+-- >                   , const price <$ eSold ]
+-- >     let eSold = whenE ((<= 0) <$> bAmount) eCoin
+--
+-- On one hand, the Behavior @bAmount@ controls whether the Event @eSold@
+-- occcurs at all; the bottle of banana juice is unavailable to penniless customers.
+-- But at the same time, the Event @eSold@ will cause a reset
+-- of the Behavior @bAmount@, so both depend on each other.
+--
+-- Recursive code like this examples works thanks to the semantics of 'stepper'.
+-- In general, /mutual recursion/ between several 'Event's and 'Behavior's
+-- is always well-defined,
+-- as long as an Event depends on itself only /via/ a Behavior,
+-- and vice versa.
 
 -- | Obtain the value of the 'Behavior' at a given moment in time.
 -- Semantically, it corresponds to
@@ -246,7 +266,6 @@ valueB = liftMoment . M . Prim.valueB . unB
 -- If that doesn't work for you, please use 'valueB' instead.
 valueBLater :: MonadMoment m => Behavior a -> m a
 valueBLater = liftMoment . M . Prim.initialBLater . unB
-
 
 -- | Observe a value at those moments in time where
 -- event occurrences happen. Semantically,
@@ -287,13 +306,13 @@ infixl 4 <@>, <@
 -- | Tag all event occurrences with a time-varying value. Similar to '<*'.
 --
 -- > infixl 4 <@
-(<@)  :: Behavior b -> Event a -> Event b
+(<@) :: Behavior b -> Event a -> Event b
 f <@ g = (const <$> f) <@> g
 
 -- | Allow all events that fulfill the time-varying predicate, discard the rest.
 -- Generalization of 'filterE'.
 filterApply :: Behavior (a -> Bool) -> Event a -> Event a
-filterApply bp = fmap snd . filterE fst . apply ((\p a-> (p a,a)) <$> bp)
+filterApply bp = fmap snd . filterE fst . apply ((\p a -> (p a, a)) <$> bp)
 
 -- | Allow events only when the behavior is 'True'.
 -- Variant of 'filterApply'.
@@ -305,15 +324,14 @@ whenE bf = filterApply (const <$> bf)
 -- go into the right component of the result.
 split :: Event (Either a b) -> (Event a, Event b)
 split e = (filterJust $ fromLeft <$> e, filterJust $ fromRight <$> e)
-    where
+  where
     fromLeft :: Either a b -> Maybe a
-    fromLeft  (Left  a) = Just a
-    fromLeft  (Right b) = Nothing
+    fromLeft (Left a) = Just a
+    fromLeft (Right b) = Nothing
 
     fromRight :: Either a b -> Maybe b
-    fromRight (Left  a) = Nothing
+    fromRight (Left a) = Nothing
     fromRight (Right b) = Just b
-
 
 -- $Accumulation.
 -- Note: All accumulation functions are strict in the accumulated value!
@@ -350,10 +368,10 @@ accumB :: MonadMoment m => a -> Event (a -> a) -> m (Behavior a)
 accumB acc e = stepper acc =<< accumE acc e
 
 -- | Efficient combination of 'accumE' and 'accumB'.
-mapAccum :: MonadMoment m => acc -> Event (acc -> (x,acc)) -> m (Event x, Behavior acc)
+mapAccum :: MonadMoment m => acc -> Event (acc -> (x, acc)) -> m (Event x, Behavior acc)
 mapAccum acc ef = do
-        e <- accumE  (undefined,acc) (lift <$> ef)
-        b <- stepper acc (snd <$> e)
-        return (fst <$> e, b)
-    where
-    lift f (_,acc) = acc `seq` f acc
+  e <- accumE (undefined, acc) (lift <$> ef)
+  b <- stepper acc (snd <$> e)
+  return (fst <$> e, b)
+  where
+    lift f (_, acc) = acc `seq` f acc

@@ -8,3 +8,5 @@ dist-newstyle/
 *.tmproj
 .ghc.environment.*
 .stack-work
+.ghcid
+hie.yaml

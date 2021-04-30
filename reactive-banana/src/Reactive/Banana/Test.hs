@@ -3,159 +3,186 @@
 
     Test cases and examples
 ------------------------------------------------------------------------------}
-{-# LANGUAGE Rank2Types, NoMonomorphismRestriction, RecursiveDo #-}
+{-# LANGUAGE Rank2Types #-}
+{-----------------------------------------------------------------------------
+    reactive-banana
 
-import Control.Arrow
-import Control.Monad (when, join)
+    Test cases and examples
+------------------------------------------------------------------------------}
+{-# LANGUAGE RecursiveDo #-}
+{-----------------------------------------------------------------------------
+    reactive-banana
 
-import Test.Framework (defaultMain, testGroup, Test)
-import Test.Framework.Providers.HUnit (testCase)
-
-import Test.HUnit (assert, Assertion)
+    Test cases and examples
+------------------------------------------------------------------------------}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 
 -- import Test.QuickCheck
 -- import Test.QuickCheck.Property
 
 import Control.Applicative
+import Control.Arrow
+import Control.Monad (join, when)
 import Reactive.Banana.Test.Plumbing
+import Test.Framework (Test, defaultMain, testGroup)
+import Test.Framework.Providers.HUnit (testCase)
+import Test.HUnit (Assertion, assert)
 
-
-main = defaultMain
-    [ testGroup "Simple"
-        [ testModelMatch "id"      id
-        , testModelMatch "never1"  never1
-        , testModelMatch "fmap1"   fmap1
-        , testModelMatch "filter1" filter1
-        , testModelMatch "filter2" filter2
-        , testModelMatchM "accumE1" accumE1
-        ]
-    , testGroup "Complex"
-        [ testModelMatchM "counter"     counter
-        , testModelMatch "double"      double
-        , testModelMatch "sharing"     sharing
-        , testModelMatch "unionFilter" unionFilter
-        , testModelMatchM "recursive1A"  recursive1A
-        , testModelMatchM "recursive1B"  recursive1B
-        , testModelMatchM "recursive2"  recursive2
-        , testModelMatchM "recursive3"  recursive3
-        , testModelMatchM "recursive4a" recursive4a
-        -- , testModelMatchM "recursive4b" recursive4b
-        , testModelMatchM "accumBvsE"   accumBvsE
-        ]
-    , testGroup "Dynamic Event Switching"
-        [ testModelMatch  "observeE_id"         observeE_id
-        , testModelMatch  "observeE_stepper"    observeE_stepper
-        , testModelMatchM "valueB_immediate"    valueB_immediate
-        -- , testModelMatchM "valueB_recursive1" valueB_recursive1
-        -- , testModelMatchM "valueB_recursive2" valueB_recursive2
-        , testModelMatchM "dynamic_apply"       dynamic_apply
-        , testModelMatchM "switchE1"            switchE1
-        , testModelMatchM "switchB1"            switchB1
-        , testModelMatchM "switchB2"            switchB2
-        ]
-    , testGroup "Regression tests"
+main =
+  defaultMain
+    [ testGroup
+        "Simple"
+        [ testModelMatch "id" id,
+          testModelMatch "never1" never1,
+          testModelMatch "fmap1" fmap1,
+          testModelMatch "filter1" filter1,
+          testModelMatch "filter2" filter2,
+          testModelMatchM "accumE1" accumE1
+        ],
+      testGroup
+        "Complex"
+        [ testModelMatchM "counter" counter,
+          testModelMatch "double" double,
+          testModelMatch "sharing" sharing,
+          testModelMatch "unionFilter" unionFilter,
+          testModelMatchM "recursive1A" recursive1A,
+          testModelMatchM "recursive1B" recursive1B,
+          testModelMatchM "recursive2" recursive2,
+          testModelMatchM "recursive3" recursive3,
+          testModelMatchM "recursive4a" recursive4a,
+          -- , testModelMatchM "recursive4b" recursive4b
+          testModelMatchM "accumBvsE" accumBvsE
+        ],
+      testGroup
+        "Dynamic Event Switching"
+        [ testModelMatch "observeE_id" observeE_id,
+          testModelMatch "observeE_stepper" observeE_stepper,
+          testModelMatchM "valueB_immediate" valueB_immediate,
+          -- , testModelMatchM "valueB_recursive1" valueB_recursive1
+          -- , testModelMatchM "valueB_recursive2" valueB_recursive2
+          testModelMatchM "dynamic_apply" dynamic_apply,
+          testModelMatchM "switchE1" switchE1,
+          testModelMatchM "switchB1" switchB1,
+          testModelMatchM "switchB2" switchB2
+        ],
+      testGroup
+        "Regression tests"
         [ testModelMatchM "issue79" issue79
         ]
-    -- TODO:
-    --  * algebraic laws
-    --  * larger examples
-    --  * quickcheck
+        -- TODO:
+        --  * algebraic laws
+        --  * larger examples
+        --  * quickcheck
     ]
 
 {-----------------------------------------------------------------------------
     Testing
 ------------------------------------------------------------------------------}
-matchesModel
-    :: (Show b, Eq b)
-    => (Event a -> Moment (Event b)) -> [a] -> IO Bool
+matchesModel ::
+  (Show b, Eq b) =>
+  (Event a -> Moment (Event b)) ->
+  [a] ->
+  IO Bool
 matchesModel f xs = do
-    bs1 <- return $ interpretModel f (singletons xs)
-    bs2 <- interpretGraph f (singletons xs)
-    -- bs3 <- interpretFrameworks f xs
-    let bs = [bs1,bs2]
-    let b = all (==bs1) bs
-    when (not b) $ mapM_ print bs
-    return b
+  bs1 <- return $ interpretModel f (singletons xs)
+  bs2 <- interpretGraph f (singletons xs)
+  -- bs3 <- interpretFrameworks f xs
+  let bs = [bs1, bs2]
+  let b = all (== bs1) bs
+  when (not b) $ mapM_ print bs
+  return b
 
 singletons = map Just
 
 -- test whether model matches
-testModelMatchM
-    :: (Show b, Eq b)
-    => String -> (Event Int -> Moment (Event b)) -> Test
-testModelMatchM name f = testCase name $ assert $ matchesModel f [1..8::Int]
+testModelMatchM ::
+  (Show b, Eq b) =>
+  String ->
+  (Event Int -> Moment (Event b)) ->
+  Test
+testModelMatchM name f = testCase name $ assert $ matchesModel f [1 .. 8 :: Int]
+
 testModelMatch name f = testModelMatchM name (return . f)
 
 -- individual tests for debugging
 testModel :: (Event Int -> Event b) -> [Maybe b]
-testModel f = interpretModel (return . f) $ singletons [1..8::Int]
-testGraph f = interpretGraph (return . f) $ singletons [1..8::Int]
+testModel f = interpretModel (return . f) $ singletons [1 .. 8 :: Int]
 
-testModelM f = interpretModel f $ singletons [1..8::Int]
-testGraphM f = interpretGraph f $ singletons [1..8::Int]
+testGraph f = interpretGraph (return . f) $ singletons [1 .. 8 :: Int]
 
+testModelM f = interpretModel f $ singletons [1 .. 8 :: Int]
+
+testGraphM f = interpretGraph f $ singletons [1 .. 8 :: Int]
 
 {-----------------------------------------------------------------------------
     Tests
 ------------------------------------------------------------------------------}
 never1 :: Event Int -> Event Int
-never1    = const never
-fmap1     = fmap (+1)
+never1 = const never
+
+fmap1 = fmap (+ 1)
 
 filterE p = filterJust . fmap (\e -> if p e then Just e else Nothing)
-filter1   = filterE (>= 3)
-filter2   = filterE (>= 3) . fmap (subtract 1)
-accumE1   = accumE 0 . ((+1) <$)
+
+filter1 = filterE (>= 3)
+
+filter2 = filterE (>= 3) . fmap (subtract 1)
+
+accumE1 = accumE 0 . ((+ 1) <$)
 
 counter e = do
-    bcounter <- accumB 0 $ fmap (\_ -> (+1)) e
-    return $ applyE (pure const <*> bcounter) e
+  bcounter <- accumB 0 $ fmap (\_ -> (+ 1)) e
+  return $ applyE (pure const <*> bcounter) e
 
 merge e1 e2 = unionWith (++) (list e1) (list e2)
-    where list = fmap (:[])
+  where
+    list = fmap (: [])
 
-double e  = merge e e
+double e = merge e e
+
 sharing e = merge e1 e1
-    where e1 = filterE (< 3) e
+  where
+    e1 = filterE (< 3) e
 
 unionFilter e1 = unionWith (+) e2 e3
-    where
-    e3 = fmap (+1) $ filterE even e1
-    e2 = fmap (+1) $ filterE odd  e1
+  where
+    e3 = fmap (+ 1) $ filterE even e1
+    e2 = fmap (+ 1) $ filterE odd e1
 
 recursive1A e1 = mdo
-    let e2 = applyE ((+) <$> b) e1
-    b <- stepperB 0 e2
-    return e2
+  let e2 = applyE ((+) <$> b) e1
+  b <- stepperB 0 e2
+  return e2
+
 recursive1B e1 = mdo
-    b <- stepperB 0 e2
-    let e2 = applyE ((+) <$> b) e1
-    return e2
+  b <- stepperB 0 e2
+  let e2 = applyE ((+) <$> b) e1
+  return e2
 
 recursive2 e1 = mdo
-    b  <- fmap ((+) <$>) $ stepperB 0 e3
-    let e2 = applyE b e1
-    let e3 = applyE (id <$> b) e1   -- actually equal to e2
-    return e2
+  b <- fmap ((+) <$>) $ stepperB 0 e3
+  let e2 = applyE b e1
+  let e3 = applyE (id <$> b) e1 -- actually equal to e2
+  return e2
 
 type Dummy = Int
 
 -- Counter that can be decreased as long as it's >= 0 .
 recursive3 :: Event Dummy -> Moment (Event Int)
 recursive3 edec = mdo
-    bcounter <- accumB 4 $ (subtract 1) <$ ecandecrease
-    let ecandecrease = whenE ((>0) <$> bcounter) edec
-    return $ applyE (const <$> bcounter) ecandecrease
+  bcounter <- accumB 4 $ (subtract 1) <$ ecandecrease
+  let ecandecrease = whenE ((> 0) <$> bcounter) edec
+  return $ applyE (const <$> bcounter) ecandecrease
 
 -- Recursive 4 is an example reported by Merijn Verstraaten
 --   https://github.com/HeinrichApfelmus/reactive-banana/issues/56
 -- Minimization:
 recursive4a :: Event Int -> Moment (Event (Bool, Int))
 recursive4a eInput = mdo
-    focus       <- stepperB False $ fst <$> resultE
-    let resultE = resultB <@ eInput
-    let resultB = (,) <$> focus <*> pureB 0
-    return $ resultB <@ eInput
+  focus <- stepperB False $ fst <$> resultE
+  let resultE = resultB <@ eInput
+  let resultB = (,) <$> focus <*> pureB 0
+  return $ resultB <@ eInput
 
 {-
 -- Full example:
@@ -182,24 +209,24 @@ recursive4b eInput = result <@ eInput
 -- Test 'accumE' vs 'accumB'.
 accumBvsE :: Event Dummy -> Moment (Event [Int])
 accumBvsE e = mdo
-    e1 <- accumE 0 ((+1) <$ e)
+  e1 <- accumE 0 ((+ 1) <$ e)
 
-    b  <- accumB 0 ((+1) <$ e)
-    let e2 = applyE (const <$> b) e
+  b <- accumB 0 ((+ 1) <$ e)
+  let e2 = applyE (const <$> b) e
 
-    return $ merge e1 e2
+  return $ merge e1 e2
 
 observeE_id = observeE . fmap return -- = id
 
 observeE_stepper :: Event Int -> Event Int
 observeE_stepper e = observeE $ (valueB =<< mb) <$ e
-    where
+  where
     mb :: Moment (Behavior Int)
     mb = stepper 0 e
 
 valueB_immediate e = do
-    x <- valueB =<< stepper 0 e
-    return $ x <$ e
+  x <- valueB =<< stepper 0 e
+  return $ x <$ e
 
 {-- The following tests would need to use the  valueBLater  combinator
 
@@ -216,38 +243,39 @@ valueB_recursive2 e1 = mdo
 -}
 
 dynamic_apply e = do
-    b <- stepper 0 e
-    return $ observeE $ (valueB b) <$ e
-    -- = stepper 0 e <@ e
+  b <- stepper 0 e
+  return $ observeE $ (valueB b) <$ e
+
+-- = stepper 0 e <@ e
 
 switchE1 e = switchE (e <$ e)
 
 switchB1 e = do
-    b0 <- stepper 0 e
-    b1 <- stepper 0 e
-    b  <- switchB b0 $ (\x -> if odd x then b1 else b0) <$> e
-    return $ b <@ e
+  b0 <- stepper 0 e
+  b1 <- stepper 0 e
+  b <- switchB b0 $ (\x -> if odd x then b1 else b0) <$> e
+  return $ b <@ e
 
 switchB2 e = do
-    b0 <- stepper 0 $ filterE even e
-    b1 <- stepper 1 $ filterE odd  e
-    b  <- switchB b0 $ (\x -> if odd x then b1 else b0) <$> e
-    return $ b <@ e
+  b0 <- stepper 0 $ filterE even e
+  b1 <- stepper 1 $ filterE odd e
+  b <- switchB b0 $ (\x -> if odd x then b1 else b0) <$> e
+  return $ b <@ e
 
 {-----------------------------------------------------------------------------
     Regression tests
 ------------------------------------------------------------------------------}
 issue79 :: Event Dummy -> Moment (Event String)
 issue79 inputEvent = mdo
-    let
-        appliedEvent  = (\_ _ -> 1) <$> lastValue <@> inputEvent
-        filteredEvent = filterE (const True) appliedEvent
-        fmappedEvent  = fmap id (filteredEvent)
-    lastValue <- stepper 1 $ fmappedEvent
+  let appliedEvent = (\_ _ -> 1) <$> lastValue <@> inputEvent
+      filteredEvent = filterE (const True) appliedEvent
+      fmappedEvent = fmap id (filteredEvent)
+  lastValue <- stepper 1 $ fmappedEvent
 
-    let outputEvent = unionWith (++)
-            (const "filtered event" <$> filteredEvent)
-            (((" and " ++) . show) <$> unionWith (+) appliedEvent fmappedEvent)
+  let outputEvent =
+        unionWith
+          (++)
+          (const "filtered event" <$> filteredEvent)
+          (((" and " ++) . show) <$> unionWith (+) appliedEvent fmappedEvent)
 
-    return $ outputEvent
-
+  return $ outputEvent

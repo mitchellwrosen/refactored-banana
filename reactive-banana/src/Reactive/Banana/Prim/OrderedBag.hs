@@ -1,17 +1,18 @@
 {-----------------------------------------------------------------------------
     reactive-banana
-    
+
     Implementation of a bag whose elements are ordered by arrival time.
 ------------------------------------------------------------------------------}
 {-# LANGUAGE TupleSections #-}
+
 module Reactive.Banana.Prim.OrderedBag where
 
-import           Data.Functor
+import Data.Functor
 import qualified Data.HashMap.Strict as Map
-import           Data.Hashable
-import           Data.List  hiding (insert)
-import           Data.Maybe
-import           Data.Ord
+import Data.Hashable
+import Data.List hiding (insert)
+import Data.Maybe
+import Data.Ord
 
 {-----------------------------------------------------------------------------
     Ordered Bag
@@ -26,7 +27,7 @@ empty = OB Map.empty 0
 -- | Add an element to an ordered bag after all the others.
 -- Does nothing if the element is already in the bag.
 insert :: (Eq a, Hashable a) => OrderedBag a -> a -> OrderedBag a
-insert (OB xs n) x = OB (Map.insertWith (\new old -> old) x n xs) (n+1)
+insert (OB xs n) x = OB (Map.insertWith (\new old -> old) x n xs) (n + 1)
 
 -- | Add a sequence of elements to an ordered bag.
 --
@@ -38,6 +39,8 @@ inserts bag xs = foldl insert bag xs
 
 -- | Reorder a list of elements to appear as they were inserted into the bag.
 -- Remove any elements from the list that do not appear in the bag.
-inOrder :: (Eq a, Hashable a) => [(a,b)] -> OrderedBag a -> [(a,b)]
-inOrder xs (OB bag _) = map snd $ sortBy (comparing fst) $
-    mapMaybe (\x -> (,x) <$> Map.lookup (fst x) bag) xs
+inOrder :: (Eq a, Hashable a) => [(a, b)] -> OrderedBag a -> [(a, b)]
+inOrder xs (OB bag _) =
+  map snd $
+    sortBy (comparing fst) $
+      mapMaybe (\x -> (,x) <$> Map.lookup (fst x) bag) xs
