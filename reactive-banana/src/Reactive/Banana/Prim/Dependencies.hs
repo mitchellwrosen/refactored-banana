@@ -18,8 +18,9 @@ where
 import Control.Monad
 import Data.Foldable (for_)
 import Data.Monoid
-import qualified Reactive.Banana.Prim.Graph as Graph
 import Reactive.Banana.Prim.Types
+import Reactive.Banana.Type.Graph (Graph)
+import qualified Reactive.Banana.Type.Graph as Graph
 import Reactive.Banana.Type.Ref
 import System.Mem.Weak
 
@@ -40,11 +41,12 @@ changeParent child parent = (mempty, [(P child, P parent)])
 -- to change network topology.
 buildDependencies :: DependencyBuilder -> IO ()
 buildDependencies (Endo f, parents) = do
-  sequence_ [x `doAddChild` y | x <- Graph.listParents gr, y <- Graph.getChildren gr x]
+  sequence_ [x `doAddChild` y | (x, y) <- Graph.getEdges gr]
   sequence_ [x `doChangeParent` y | (P x, P y) <- parents]
   where
-    gr :: Graph.Graph SomeNode
-    gr = f Graph.emptyGraph
+    gr :: Graph SomeNode
+    gr =
+      f Graph.emptyGraph
 
 {-----------------------------------------------------------------------------
     Set dependencies of individual notes
@@ -97,7 +99,7 @@ doChangeParent :: Pulse a -> Pulse b -> IO ()
 doChangeParent child parent = do
   -- remove all previous parents and connect to new parent
   removeParents child
-  w <- parent `connectChild` (P child)
+  w <- parent `connectChild` P child
   modifyRef child (update parentsP (w :))
 
   -- calculate level difference between parent and node

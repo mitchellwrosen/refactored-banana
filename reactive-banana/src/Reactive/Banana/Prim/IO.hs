@@ -3,7 +3,7 @@
 module Reactive.Banana.Prim.IO where
 
 import Control.Monad.IO.Class
-import qualified Data.Vault.Lazy as Lazy
+import qualified Data.Vault.Lazy as Vault
 import Reactive.Banana.Prim.Combinators (mapP)
 import Reactive.Banana.Prim.Evaluation (step)
 import Reactive.Banana.Prim.Plumbing
@@ -21,7 +21,7 @@ import Reactive.Banana.Type.Ref
 newInput :: forall a. Build (Pulse a, a -> Step)
 newInput = mdo
   always <- alwaysP
-  key <- liftIO Lazy.newKey
+  key <- liftIO Vault.newKey
   pulse <-
     liftIO $
       newRef
@@ -36,8 +36,9 @@ newInput = mdo
           }
   -- Also add the  alwaysP  pulse to the inputs.
   let run :: a -> Step
-      run a = step ([P pulse, P always], Lazy.insert key (Just a) Lazy.empty)
-  return (pulse, run)
+      run a =
+        step ([P pulse, P always], Vault.insert key (Just a) Vault.empty)
+  pure (pulse, run)
 
 -- | Register a handler to be executed whenever a pulse occurs.
 --

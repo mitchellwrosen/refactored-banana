@@ -15,14 +15,14 @@ module Reactive.Banana.Type.Ref
   )
 where
 
-import Data.Hashable
+import Data.Hashable (hashWithSalt)
 import Data.IORef
-import Data.Maybe (catMaybes)
 import Data.Unique.Really
 import qualified GHC.Base as GHC
 import qualified GHC.IORef as GHC
 import qualified GHC.STRef as GHC
 import qualified GHC.Weak as GHC
+import Reactive.Banana.Prelude
 import System.Mem.Weak
 
 -- | IORefs that can be hashed
@@ -61,18 +61,15 @@ mkWeakIORefValueFinalizer (GHC.IORef (GHC.STRef r#)) v (GHC.IO f) =
   GHC.IO \s ->
     case GHC.mkWeak# r# v f s of (# s1, w #) -> (# s1, GHC.Weak w #)
 
-mkWeakIORefValue :: IORef a -> value -> IO (Weak value)
-mkWeakIORefValue a b = mkWeakIORefValueFinalizer a b (return ())
-
 mkWeakRef :: Ref a -> IO (Weak (Ref a))
 mkWeakRef ref@(Ref ref' _) =
   mkWeakIORefValueFinalizer ref' ref (pure ())
 
 mkWeakRefValue :: Ref a -> value -> IO (Weak value)
-mkWeakRefValue (Ref ref _) =
-  mkWeakIORefValue ref
+mkWeakRefValue (Ref ref _) value =
+  mkWeakIORefValueFinalizer ref value (pure ())
 
 -- | Dereference a list of weak pointers while discarding dead ones.
 deRefWeaks :: [Weak v] -> IO [v]
 deRefWeaks ws =
-  catMaybes <$> mapM deRefWeak ws
+  catMaybes <$> traverse deRefWeak ws
