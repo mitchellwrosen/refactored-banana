@@ -48,7 +48,7 @@ compile m state1 = do
 --
 -- Note: The result is not computed lazily, for similar reasons
 -- that the 'sequence' function does not compute its result lazily.
-interpret :: (Pulse a -> BuildIO (Pulse b)) -> [Maybe a] -> IO [Maybe b]
+interpret :: (PulseRef a -> BuildIO (PulseRef b)) -> [Maybe a] -> IO [Maybe b]
 interpret f xs = do
   o <- newIORef Nothing
   let network = do
@@ -75,7 +75,7 @@ interpret f xs = do
 -- Make sure that outputs are evaluated, but don't display their values.
 --
 -- Mainly useful for testing whether there are space leaks.
-runSpaceProfile :: Show b => (Pulse a -> BuildIO (Pulse b)) -> [a] -> IO ()
+runSpaceProfile :: Show b => (PulseRef a -> BuildIO (PulseRef b)) -> [a] -> IO ()
 runSpaceProfile f xs = do
   let g = do
         (p1, fire) <- newInput

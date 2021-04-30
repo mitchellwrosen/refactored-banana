@@ -26,7 +26,7 @@ import System.Mem.Weak
 data Network = Network
   { nTime :: !Time, -- Current time.
     nOutputs :: !(OSet Output), -- Remember outputs to prevent garbage collection.
-    nAlwaysP :: !(Maybe (Pulse ())) -- Pulse that always fires.
+    nAlwaysP :: !(Maybe (PulseRef ())) -- Pulse that always fires.
   }
 
 type EvalNetwork a = Network -> IO (a, Network)
@@ -45,7 +45,7 @@ type Build = RWIO BuildR BuildW
 
 -- ( current time
 -- , pulse that always fires)
-type BuildR = (Time, Pulse ())
+type BuildR = (Time, PulseRef ())
 
 newtype BuildW = BuildW (DependencyBuilder, [Output], IO (), Maybe (Build ()))
 
@@ -84,14 +84,14 @@ set :: Lens s a -> a -> s -> s
 set (Lens _ f) = f
 
 update :: Lens s a -> (a -> a) -> s -> s
-update (Lens lg lf) f = \s -> lf (f $ lg s) s
+update (Lens lg lf) f s = lf (f $ lg s) s
 
 {-----------------------------------------------------------------------------
     Pulse and Latch
 ------------------------------------------------------------------------------}
-type Pulse a = Ref (Pulse' a)
+type PulseRef a = Ref (Pulse a)
 
-data Pulse' a = Pulse
+data Pulse a = Pulse
   { _keyP :: Vault.Key (Maybe a), -- Key to retrieve pulse from cache.
     _seenP :: !Time, -- See note [Timestamp].
     _evalP :: EvalP (Maybe a), -- Calculate current value.
@@ -101,7 +101,7 @@ data Pulse' a = Pulse
     _nameP :: String -- Name for debugging.
   }
 
-instance Show (Pulse a) where
+instance Show (PulseRef a) where
   show p = _nameP (unsafePerformIO $ readRef p) ++ " " ++ show (hashWithSalt 0 p)
 
 type Latch a = Ref (Latch' a)
@@ -126,10 +126,8 @@ newtype Output' = Output
   { _evalO :: EvalP EvalO
   }
 
-instance Eq Output where (==) = equalRef
-
 data SomeNode
-  = forall a. P (Pulse a)
+  = forall a. P (PulseRef a)
   | L LatchWrite
   | O Output
 
@@ -151,7 +149,7 @@ mkWeakNodeValue (L x) = mkWeakRefValue x
 mkWeakNodeValue (O x) = mkWeakRefValue x
 
 -- Lenses for various parameters
-seenP :: Lens (Pulse' a) Time
+seenP :: Lens (Pulse a) Time
 seenP = Lens _seenP (\a s -> s {_seenP = a})
 
 seenL :: Lens (Latch' a) Time
@@ -160,19 +158,17 @@ seenL = Lens _seenL (\a s -> s {_seenL = a})
 valueL :: Lens (Latch' a) a
 valueL = Lens _valueL (\a s -> s {_valueL = a})
 
-parentsP :: Lens (Pulse' a) [Weak SomeNode]
+parentsP :: Lens (Pulse a) [Weak SomeNode]
 parentsP = Lens _parentsP (\a s -> s {_parentsP = a})
 
-childrenP :: Lens (Pulse' a) [Weak SomeNode]
+childrenP :: Lens (Pulse a) [Weak SomeNode]
 childrenP = Lens _childrenP (\a s -> s {_childrenP = a})
 
-levelP :: Lens (Pulse' a) Int
+levelP :: Lens (Pulse a) Int
 levelP = Lens _levelP (\a s -> s {_levelP = a})
 
 -- | Evaluation monads.
-type EvalPW = (EvalLW, [(Output, EvalO)])
-
-type EvalLW = IO ()
+type EvalPW = (IO (), [(Output, EvalO)])
 
 type EvalO = Future (IO ())
 

@@ -29,6 +29,10 @@ import System.Mem.Weak
 data Ref a
   = Ref !(IORef a) !Unique
 
+instance Eq (Ref a) where
+  (==) =
+    equalRef
+
 instance Hashable (Ref a) where
   hashWithSalt s (Ref _ u) = hashWithSalt s u
 

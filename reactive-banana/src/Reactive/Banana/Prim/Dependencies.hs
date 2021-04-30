@@ -34,7 +34,7 @@ addChild parent child = (Endo $ Graph.insertEdge (parent, child), mempty)
 
 -- | Assign a new parent to a child node.
 -- INVARIANT: The child may have only one parent node.
-changeParent :: Pulse a -> Pulse b -> DependencyBuilder
+changeParent :: PulseRef a -> PulseRef b -> DependencyBuilder
 changeParent child parent = (mempty, [(P child, P parent)])
 
 -- | Execute the information in the dependency builder
@@ -55,7 +55,7 @@ buildDependencies (Endo f, parents) = do
 -- | Add a child node to the children of a parent 'Pulse'.
 connectChild ::
   -- | Parent node whose '_childP' field is to be updated.
-  Pulse a ->
+  PulseRef a ->
   -- | Child node to add.
   SomeNode ->
   -- | Weak reference with the child as key and the parent as value.
@@ -80,7 +80,7 @@ doAddChild x y = do
   error ("doAddChild (" ++ sx ++ ") (" ++ sy ++ ")")
 
 -- | Remove a node from its parents and all parents from this node.
-removeParents :: Pulse a -> IO ()
+removeParents :: PulseRef a -> IO ()
 removeParents child = do
   c@Pulse {_parentsP} <- readRef child
   -- delete this child (and dead children) from all parent nodes
@@ -95,7 +95,7 @@ removeParents child = do
     isGoodChild w = not . maybe True (== P child) <$> deRefWeak w
 
 -- | Set the parent of a pulse to a different pulse.
-doChangeParent :: Pulse a -> Pulse b -> IO ()
+doChangeParent :: PulseRef a -> PulseRef b -> IO ()
 doChangeParent child parent = do
   -- remove all previous parents and connect to new parent
   removeParents child

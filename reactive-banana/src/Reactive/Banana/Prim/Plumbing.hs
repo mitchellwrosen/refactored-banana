@@ -24,7 +24,7 @@ import System.IO.Unsafe
 ------------------------------------------------------------------------------}
 
 -- | Make 'Pulse' from evaluation function
-newPulse :: String -> EvalP (Maybe a) -> IO (Pulse a)
+newPulse :: String -> EvalP (Maybe a) -> IO (PulseRef a)
 newPulse name eval = do
   key <- Vault.newKey
   newRef
@@ -49,7 +49,7 @@ this is a recipe for desaster.
 -}
 
 -- | 'Pulse' that never fires.
-neverP :: IO (Pulse a)
+neverP :: IO (PulseRef a)
 neverP = do
   key <- Vault.newKey
   newRef
@@ -75,7 +75,7 @@ pureL a =
         }
 
 -- | Make new 'Latch' that can be updated by a 'Pulse'
-newLatch :: forall a. a -> IO (Pulse a -> Build (), Latch a)
+newLatch :: forall a. a -> IO (PulseRef a -> Build (), Latch a)
 newLatch a = mdo
   latch <-
     newRef
@@ -87,7 +87,7 @@ newLatch a = mdo
             RW.tell _seenL -- indicate timestamp
             return _valueL -- indicate value
         }
-  let updateOn :: Pulse a -> Build ()
+  let updateOn :: PulseRef a -> Build ()
       updateOn p = do
         lw <-
           liftIO do
@@ -133,7 +133,7 @@ cachedLatch eval =
 -- | Add a new output that depends on a 'Pulse'.
 --
 -- TODO: Return function to unregister the output again.
-addOutput :: Pulse EvalO -> Build ()
+addOutput :: PulseRef EvalO -> Build ()
 addOutput p = do
   o <-
     liftIO $
@@ -184,10 +184,10 @@ buildLaterReadNow m = do
 getTimeB :: Build Time
 getTimeB = (\(x, _) -> x) <$> RW.ask
 
-alwaysP :: Build (Pulse ())
+alwaysP :: Build (PulseRef ())
 alwaysP = (\(_, x) -> x) <$> RW.ask
 
-dependOn :: Pulse child -> Pulse parent -> Build ()
+dependOn :: PulseRef child -> PulseRef parent -> Build ()
 dependOn child parent =
   P parent `addChild` P child
 
@@ -201,7 +201,7 @@ addChild :: SomeNode -> SomeNode -> Build ()
 addChild parent child =
   RW.tell $ BuildW (Deps.addChild parent child, mempty, mempty, mempty)
 
-changeParent :: Pulse child -> Pulse parent -> Build ()
+changeParent :: PulseRef child -> PulseRef parent -> Build ()
 changeParent node parent =
   RW.tell $ BuildW (Deps.changeParent node parent, mempty, mempty, mempty)
 
@@ -240,7 +240,7 @@ liftBuildP m = RWS.rws $ \r2 s -> do
 askTime :: EvalP Time
 askTime = fst <$> RWS.ask
 
-readPulseP :: Pulse a -> EvalP (Maybe a)
+readPulseP :: PulseRef a -> EvalP (Maybe a)
 readPulseP p = do
   Pulse {_keyP} <- liftIO (readRef p)
   vault <- RWS.get
