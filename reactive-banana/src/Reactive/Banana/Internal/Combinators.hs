@@ -13,6 +13,7 @@ import Control.Monad.Trans.Reader
 import Data.IORef
 import Reactive.Banana.Prim (Build, Future, Latch)
 import qualified Reactive.Banana.Prim as Prim
+import qualified Reactive.Banana.Prim.Compile as Prim.Compile
 import Reactive.Banana.Prim.Types (Pulse)
 import Reactive.Banana.Type.Ref (Ref)
 import System.IO.Unsafe (unsafePerformIO)
@@ -70,7 +71,8 @@ compile setup = do
           }
 
   -- compile initial graph
-  (_output, s0) <- Prim.compile (runReaderT setup eventNetwork) Prim.emptyNetwork
+  emptyNetwork <- Prim.Compile.makeEmptyNetwork
+  (_output, s0) <- Prim.compile (runReaderT setup eventNetwork) emptyNetwork
   putMVar s s0 -- set initial state
   return eventNetwork
 

@@ -21,7 +21,6 @@ module Reactive.Banana.Prim.Types
     Time,
     agesAgo,
     beginning,
-    emptyNetwork,
     ground,
     mkWeakNodeValue,
     next,
@@ -37,7 +36,6 @@ import Data.Vault.Lazy (Vault)
 import qualified Data.Vault.Lazy as Vault
 import Reactive.Banana.Type.Graph (Graph)
 import Reactive.Banana.Type.OSet (OSet)
-import qualified Reactive.Banana.Type.OSet as OSet
 import Reactive.Banana.Type.Ref
 import System.IO.Unsafe
 import System.Mem.Weak
@@ -53,20 +51,12 @@ data Network = Network
     -- | Remember outputs to prevent garbage collection.
     nOutputs :: !(OSet (Ref Output)),
     -- | Pulse that always fires.
-    nAlwaysP :: !(Maybe (Ref (Pulse ())))
+    nAlwaysP :: !(Ref (Pulse ()))
   }
 
 type EvalNetwork a = Network -> IO (a, Network)
 
 type Step = EvalNetwork (IO ())
-
-emptyNetwork :: Network
-emptyNetwork =
-  Network
-    { nTime = next beginning,
-      nOutputs = OSet.empty,
-      nAlwaysP = Nothing
-    }
 
 type Build = RWIO BuildR BuildW
 

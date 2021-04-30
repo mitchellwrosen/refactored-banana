@@ -14,7 +14,6 @@ module Reactive.Banana.Prim
     -- * Evaluation
     Step,
     Network,
-    emptyNetwork,
 
     -- * Build FRP networks
     Build,

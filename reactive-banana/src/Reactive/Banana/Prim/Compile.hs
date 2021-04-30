@@ -17,25 +17,31 @@ import Reactive.Banana.Type.Ref (Ref)
    Compilation
 ------------------------------------------------------------------------------}
 
+makeEmptyNetwork :: IO Network
+makeEmptyNetwork = do
+  nAlwaysP <- newPulse "alwaysP" (pure (Just ()))
+  pure
+    Network
+      { nTime = next beginning,
+        nOutputs = OSet.empty,
+        nAlwaysP
+      }
+
 -- | Change a 'Network' of pulses and latches by
 -- executing a 'BuildIO' action.
 compile :: BuildIO a -> Network -> IO (a, Network)
-compile m state1 = do
+compile m state1@Network {nAlwaysP} = do
   let time1 = nTime state1
       outputs1 = nOutputs state1
 
-  theAlwaysP <- case nAlwaysP state1 of
-    Just x -> pure x
-    Nothing -> newPulse "alwaysP" (pure (Just ()))
-
-  (a, topology, os) <- runBuildIO (nTime state1, theAlwaysP) m
+  (a, topology, os) <- runBuildIO (nTime state1, nAlwaysP) m
   topology
 
   let state2 =
         Network
           { nTime = next time1,
             nOutputs = foldl' OSet.insert outputs1 os,
-            nAlwaysP = Just theAlwaysP
+            nAlwaysP = nAlwaysP
           }
   return (a, state2)
 
@@ -60,6 +66,7 @@ interpret f xs = do
         return fire
 
   -- compile initial network
+  emptyNetwork <- makeEmptyNetwork
   (fire, state) <- compile network emptyNetwork
 
   let go Nothing s1 = return (Nothing, s1)
@@ -84,8 +91,8 @@ runSpaceProfile f xs = do
         p3 <- mapP return p2 -- wrap into Future
         addHandler p3 (void . evaluate)
         return fire
+  emptyNetwork <- makeEmptyNetwork
   (step, network) <- compile g emptyNetwork
-
   let fire x s1 = do
         (outputs, s2) <- step x s1
         outputs -- don't forget to execute outputs

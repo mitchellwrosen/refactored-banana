@@ -31,37 +31,33 @@ type Queue = Q.MinPQueue Level
 -- | Evaluate all the pulses in the graph,
 -- Rebuild the graph as necessary and update the latch values.
 step :: ([Node], Vault) -> Network -> IO (IO (), Network)
-step (inputs, pulses) Network {nTime = time1, nOutputs = outputs1, nAlwaysP} =
-  -- we assume that this has been built already
-  case nAlwaysP of
-    Nothing -> undefined
-    Just alwaysPulse -> do
-      -- evaluate pulses
-      ((_, (latchUpdates, outputs)), topologyUpdates, os) <-
-        runBuildIO (time1, alwaysPulse) $
-          runEvalP pulses $
-            evaluatePulses inputs
+step (inputs, pulses) Network {nTime = time1, nOutputs = outputs1, nAlwaysP} = do
+  -- evaluate pulses
+  ((_, (latchUpdates, outputs)), topologyUpdates, os) <-
+    runBuildIO (time1, nAlwaysP) $
+      runEvalP pulses $
+        evaluatePulses inputs
 
-      -- update latch values from pulses
-      latchUpdates
+  -- update latch values from pulses
+  latchUpdates
 
-      -- rearrange graph topology
-      topologyUpdates
+  -- rearrange graph topology
+  topologyUpdates
 
-      let actions :: [(Ref Output, EvalO)]
-          actions =
-            -- EvalO actions in proper order
-            OSet.inOrder outputs outputs1
+  let actions :: [(Ref Output, EvalO)]
+      actions =
+        -- EvalO actions in proper order
+        OSet.inOrder outputs outputs1
 
-      let state2 :: Network
-          state2 =
-            Network
-              { nTime = next time1,
-                nOutputs = foldl' OSet.insert outputs1 os,
-                nAlwaysP = Just alwaysPulse
-              }
+  let state2 :: Network
+      state2 =
+        Network
+          { nTime = next time1,
+            nOutputs = foldl' OSet.insert outputs1 os,
+            nAlwaysP
+          }
 
-      pure (runEvalOs $ map snd actions, state2)
+  pure (runEvalOs $ map snd actions, state2)
 
 runEvalOs :: [EvalO] -> IO ()
 runEvalOs = traverse_ join
