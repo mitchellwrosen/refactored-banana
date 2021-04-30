@@ -17,6 +17,7 @@ import Control.Monad (foldM, join)
 import Control.Monad.IO.Class
 import qualified Control.Monad.Trans.RWSIO as RWS
 import qualified Control.Monad.Trans.ReaderWriterIO as RW
+import Data.Foldable (traverse_)
 import Data.Functor
 import Data.Maybe
 import qualified Data.PQueue.Prio.Min as Q
@@ -43,7 +44,6 @@ step
       nOutputs = outputs1,
       nAlwaysP = Just alwaysP -- we assume that this has been built already
     } =
-    {-# SCC step #-}
     do
       -- evaluate pulses
       ((_, (latchUpdates, outputs)), topologyUpdates, os) <-
@@ -65,7 +65,7 @@ step
       return (runEvalOs $ map snd actions, state2)
 
 runEvalOs :: [EvalO] -> IO ()
-runEvalOs = sequence_ . map join
+runEvalOs = traverse_ join
 
 {-----------------------------------------------------------------------------
     Traversal in dependency order
@@ -77,8 +77,7 @@ evaluatePulses roots = RWS.R $ \r -> go r =<< insertNodes r roots Q.empty
   where
     go :: RWS.Tuple BuildR (EvalPW, BuildW) Lazy.Vault -> Queue SomeNode -> IO ()
     go r q =
-      {-# SCC go #-}
-      case ({-# SCC minView #-} Q.minView q) of
+      case Q.minView q of
         Nothing -> return ()
         Just (node, q) -> do
           children <- unwrapEvalP r (evaluateNode node)
@@ -89,7 +88,6 @@ evaluatePulses roots = RWS.R $ \r -> go r =<< insertNodes r roots Q.empty
 -- that need to evaluated subsequently.
 evaluateNode :: SomeNode -> EvalP [SomeNode]
 evaluateNode (P p) =
-  {-# SCC evaluateNodeP #-}
   do
     Pulse {..} <- readRef p
     ma <- _evalP
@@ -97,33 +95,28 @@ evaluateNode (P p) =
     case ma of
       Nothing -> return []
       Just _ -> liftIO $ deRefWeaks _childrenP
-evaluateNode (L lw) =
-  {-# SCC evaluateNodeL #-}
-  do
-    time <- askTime
-    LatchWrite {..} <- readRef lw
-    mlatch <- liftIO $ deRefWeak _latchLW -- retrieve destination latch
-    case mlatch of
-      Nothing -> return ()
-      Just latch -> do
-        a <- _evalLW -- calculate new latch value
-        -- liftIO $ Strict.evaluate a      -- see Note [LatchStrictness]
-        rememberLatchUpdate $ -- schedule value to be set later
-          modify' latch $ \l ->
-            a `seq` l {_seenL = time, _valueL = a}
-    return []
-evaluateNode (O o) =
-  {-# SCC evaluateNodeO #-}
-  do
-    debug "evaluateNode O"
-    Output {..} <- readRef o
-    m <- _evalO -- calculate output action
-    rememberOutput $ (o, m)
-    return []
+evaluateNode (L lw) = do
+  time <- askTime
+  LatchWrite {..} <- readRef lw
+  mlatch <- liftIO $ deRefWeak _latchLW -- retrieve destination latch
+  case mlatch of
+    Nothing -> return ()
+    Just latch -> do
+      a <- _evalLW -- calculate new latch value
+      -- liftIO $ Strict.evaluate a      -- see Note [LatchStrictness]
+      rememberLatchUpdate $ -- schedule value to be set later
+        modify' latch $ \l ->
+          a `seq` l {_seenL = time, _valueL = a}
+  return []
+evaluateNode (O o) = do
+  Output {..} <- readRef o
+  m <- _evalO -- calculate output action
+  rememberOutput (o, m)
+  return []
 
 -- | Insert nodes into the queue
 insertNodes :: RWS.Tuple BuildR (EvalPW, BuildW) Lazy.Vault -> [SomeNode] -> Queue SomeNode -> IO (Queue SomeNode)
-insertNodes (RWS.Tuple (time, _) _ _) = {-# SCC insertNodes #-} go
+insertNodes (RWS.Tuple (time, _) _ _) = go
   where
     go :: [SomeNode] -> Queue SomeNode -> IO (Queue SomeNode)
     go [] q = return q

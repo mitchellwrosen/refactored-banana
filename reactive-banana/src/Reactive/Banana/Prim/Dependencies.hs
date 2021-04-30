@@ -69,7 +69,7 @@ doAddChild (P parent) (P child) = do
   level1 <- _levelP <$> readRef child
   level2 <- _levelP <$> readRef parent
   let level = level1 `max` (level2 + 1)
-  w <- parent `connectChild` (P child)
+  w <- parent `connectChild` P child
   modify' child $ set levelP level . update parentsP (w :)
 doAddChild (P parent) node = void $ parent `connectChild` node
 

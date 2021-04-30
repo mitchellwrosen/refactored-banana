@@ -46,6 +46,7 @@ Library
                         DerivingVia
                         LambdaCase
                         GeneralizedNewtypeDeriving
+                        NamedFieldPuns
                         ScopedTypeVariables
     default-language:   Haskell98
     hs-source-dirs:     src

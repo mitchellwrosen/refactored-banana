@@ -1,8 +1,4 @@
-{-----------------------------------------------------------------------------
-    reactive-banana
-------------------------------------------------------------------------------}
 {-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Reactive.Banana.Prim.IO where
 
@@ -16,8 +12,6 @@ import Reactive.Banana.Prim.Plumbing
 import Reactive.Banana.Prim.Types
 import Reactive.Banana.Prim.Util
 
-debug s = id
-
 {-----------------------------------------------------------------------------
     Primitives connecting to the outside world
 ------------------------------------------------------------------------------}
@@ -29,7 +23,7 @@ debug s = id
 newInput :: forall a. Build (Pulse a, a -> Step)
 newInput = mdo
   always <- alwaysP
-  key <- liftIO $ Lazy.newKey
+  key <- liftIO Lazy.newKey
   pulse <-
     liftIO $
       newRef $
@@ -54,7 +48,3 @@ addHandler :: Pulse (Future a) -> (a -> IO ()) -> Build ()
 addHandler p1 f = do
   p2 <- mapP (fmap f) p1
   addOutput p2
-
--- | Read the value of a 'Latch' at a particular moment in time.
-readLatch :: Latch a -> Build a
-readLatch = readLatchB

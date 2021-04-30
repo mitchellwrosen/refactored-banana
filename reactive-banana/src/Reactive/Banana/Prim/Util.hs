@@ -1,11 +1,5 @@
 {-# LANGUAGE CPP #-}
-{-----------------------------------------------------------------------------
-    reactive-banana
-------------------------------------------------------------------------------}
 {-# LANGUAGE MagicHash #-}
-{-----------------------------------------------------------------------------
-    reactive-banana
-------------------------------------------------------------------------------}
 {-# LANGUAGE UnboxedTuples #-}
 
 module Reactive.Banana.Prim.Util where
@@ -21,13 +15,6 @@ import qualified GHC.IORef as GHC
 import qualified GHC.STRef as GHC
 import qualified GHC.Weak as GHC
 import System.Mem.Weak
-
-debug :: MonadIO m => String -> m ()
--- debug = liftIO . putStrLn
-debug _ = return ()
-
-nop :: Monad m => m ()
-nop = return ()
 
 {-----------------------------------------------------------------------------
     IORefs that can be hashed
@@ -66,6 +53,10 @@ mkWeakIORefValueFinalizer r@(GHC.IORef (GHC.STRef r#)) v f = GHC.IO $ \s ->
 
 mkWeakIORefValue :: IORef a -> value -> IO (Weak value)
 mkWeakIORefValue a b = mkWeakIORefValueFinalizer a b (return ())
+
+mkWeakRef :: Ref a -> IO (Weak (Ref a))
+mkWeakRef ref@(Ref ref' _) =
+  mkWeakIORefValueFinalizer ref' ref (pure ())
 
 mkWeakRefValue :: MonadIO m => Ref a -> value -> m (Weak value)
 mkWeakRefValue (Ref ref _) v = liftIO $ mkWeakIORefValue ref v

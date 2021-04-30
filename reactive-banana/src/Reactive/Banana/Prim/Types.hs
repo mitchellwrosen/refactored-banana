@@ -1,11 +1,5 @@
-{-----------------------------------------------------------------------------
-    reactive-banana
-------------------------------------------------------------------------------}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-----------------------------------------------------------------------------
-    reactive-banana
-------------------------------------------------------------------------------}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
@@ -18,7 +12,8 @@ import Data.Functor
 import Data.Hashable
 import Data.Monoid (Monoid, mappend, mempty)
 import Data.Semigroup
-import qualified Data.Vault.Lazy as Lazy
+import Data.Vault.Lazy (Vault)
+import qualified Data.Vault.Lazy as Vault
 import Reactive.Banana.Prim.Graph (Graph)
 import Reactive.Banana.Prim.OrderedBag as OB (OrderedBag, empty)
 import Reactive.Banana.Prim.Util
@@ -36,7 +31,7 @@ data Network = Network
     nAlwaysP :: !(Maybe (Pulse ())) -- Pulse that always fires.
   }
 
-type Inputs = ([SomeNode], Lazy.Vault)
+type Inputs = ([SomeNode], Vault)
 
 type EvalNetwork a = Network -> IO (a, Network)
 
@@ -52,10 +47,10 @@ emptyNetwork =
 
 type Build = RWIO BuildR BuildW
 
-type BuildR = (Time, Pulse ())
-
 -- ( current time
 -- , pulse that always fires)
+type BuildR = (Time, Pulse ())
+
 newtype BuildW = BuildW (DependencyBuilder, [Output], IO (), Maybe (Build ()))
 
 -- reader : current timestamp
@@ -101,7 +96,7 @@ update (Lens get set) f = \s -> set (f $ get s) s
 type Pulse a = Ref (Pulse' a)
 
 data Pulse' a = Pulse
-  { _keyP :: Lazy.Key (Maybe a), -- Key to retrieve pulse from cache.
+  { _keyP :: Vault.Key (Maybe a), -- Key to retrieve pulse from cache.
     _seenP :: !Time, -- See note [Timestamp].
     _evalP :: EvalP (Maybe a), -- Calculate current value.
     _childrenP :: [Weak SomeNode], -- Weak references to child nodes.
@@ -131,7 +126,7 @@ data LatchWrite' = forall a.
 
 type Output = Ref Output'
 
-data Output' = Output
+newtype Output' = Output
   { _evalO :: EvalP EvalO
   }
 
@@ -188,7 +183,7 @@ type Future = IO
 
 -- Note: For efficiency reasons, we unroll the monad transformer stack.
 -- type EvalP = RWST () Lazy.Vault EvalPW Build
-type EvalP = RWSIO BuildR (EvalPW, BuildW) Lazy.Vault
+type EvalP = RWSIO BuildR (EvalPW, BuildW) Vault
 
 -- writer : (latch updates, IO action)
 -- state  : current pulse values

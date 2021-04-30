@@ -20,7 +20,6 @@ module Reactive.Banana.Prim
     Build,
     liftIOLater,
     BuildIO,
-    liftBuild,
     buildLater,
     buildLaterReadNow,
     compile,
@@ -74,7 +73,7 @@ import Reactive.Banana.Prim.Cached
 import Reactive.Banana.Prim.Combinators
 import Reactive.Banana.Prim.Compile
 import Reactive.Banana.Prim.IO
-import Reactive.Banana.Prim.Plumbing (alwaysP, buildLater, buildLaterReadNow, liftBuild, liftIOLater, neverP)
+import Reactive.Banana.Prim.Plumbing (alwaysP, buildLater, buildLaterReadNow, liftIOLater, neverP, readLatch)
 import Reactive.Banana.Prim.Types
 
 {-----------------------------------------------------------------------------
@@ -121,7 +120,7 @@ import Reactive.Banana.Prim.Types
 test :: Build (Pulse ())
 test = mdo
   p1 <- mapP (const ()) p2
-  p2 <- neverP
+  p2 <- liftIO neverP
   return p1
 
 -- Note [LatchStrictness]

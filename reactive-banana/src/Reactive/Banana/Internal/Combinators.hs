@@ -100,7 +100,7 @@ fromPoll poll = do
   stepperB a e
 
 liftIOLater :: IO () -> Moment ()
-liftIOLater = lift . Prim.liftBuild . Prim.liftIOLater
+liftIOLater = lift . Prim.liftIOLater
 
 imposeChanges :: Behavior a -> Event () -> Behavior a
 imposeChanges behavior event =
@@ -114,7 +114,7 @@ imposeChanges behavior event =
 ------------------------------------------------------------------------------}
 never :: Event a
 never =
-  lift Prim.neverP
+  liftIO Prim.neverP
 
 unionWith :: (a -> a -> a) -> Event a -> Event a -> Event a
 unionWith f event1 event2 =
@@ -204,7 +204,7 @@ accumE a event =
 valueB :: Behavior a -> Moment a
 valueB behavior = do
   ~(latch, _) <- behavior
-  lift (Prim.readLatch latch)
+  liftIO (Prim.readLatch latch)
 
 initialBLater :: Behavior a -> Moment a
 initialBLater behavior =

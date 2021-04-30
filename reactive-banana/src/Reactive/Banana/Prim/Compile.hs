@@ -1,6 +1,3 @@
-{-----------------------------------------------------------------------------
-    reactive-banana
-------------------------------------------------------------------------------}
 {-# LANGUAGE BangPatterns #-}
 
 module Reactive.Banana.Prim.Compile where
@@ -27,10 +24,8 @@ compile m state1 = do
       outputs1 = nOutputs state1
 
   theAlwaysP <- case nAlwaysP state1 of
-    Just x -> return x
-    Nothing -> do
-      (x, _, _) <- runBuildIO undefined $ newPulse "alwaysP" (return $ Just ())
-      return x
+    Just x -> pure x
+    Nothing -> newPulse "alwaysP" (pure (Just ()))
 
   (a, topology, os) <- runBuildIO (nTime state1, theAlwaysP) m
   topology
@@ -57,10 +52,10 @@ interpret :: (Pulse a -> BuildIO (Pulse b)) -> [Maybe a] -> IO [Maybe b]
 interpret f xs = do
   o <- newIORef Nothing
   let network = do
-        (pin, sin) <- liftBuild $ newInput
+        (pin, sin) <- newInput
         pmid <- f pin
-        pout <- liftBuild $ mapP return pmid
-        liftBuild $ addHandler pout (writeIORef o . Just)
+        pout <- mapP return pmid
+        addHandler pout (writeIORef o . Just)
         return sin
 
   -- compile initial network
@@ -83,7 +78,7 @@ interpret f xs = do
 runSpaceProfile :: Show b => (Pulse a -> BuildIO (Pulse b)) -> [a] -> IO ()
 runSpaceProfile f xs = do
   let g = do
-        (p1, fire) <- liftBuild $ newInput
+        (p1, fire) <- newInput
         p2 <- f p1
         p3 <- mapP return p2 -- wrap into Future
         addHandler p3 (\b -> void $ evaluate b)
