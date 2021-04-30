@@ -16,7 +16,7 @@ import Data.Vault.Lazy (Vault)
 import qualified Data.Vault.Lazy as Vault
 import qualified Reactive.Banana.Prim.Dependencies as Deps
 import Reactive.Banana.Prim.Types
-import Reactive.Banana.Prim.Util
+import Reactive.Banana.Type.Ref
 import System.IO.Unsafe
 
 {-----------------------------------------------------------------------------
@@ -120,13 +120,13 @@ cachedLatch eval =
               (a, time) <- RW.listen eval
               liftIO $
                 if time <= _seenL
-                  then return _valueL -- return old value
+                  then pure _valueL -- return old value
                   else do
                     -- update value
                     let _seenL = time
                     let _valueL = a
-                    a `seq` put latch (Latch {..})
-                    return a
+                    a `seq` writeRef latch Latch {..}
+                    pure a
           }
     return latch
 

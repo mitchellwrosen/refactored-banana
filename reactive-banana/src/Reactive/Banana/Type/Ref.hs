@@ -2,7 +2,18 @@
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE UnboxedTuples #-}
 
-module Reactive.Banana.Prim.Util where
+module Reactive.Banana.Type.Ref
+  ( Ref,
+    newRef,
+    equalRef,
+    readRef,
+    writeRef,
+    modifyRef,
+    mkWeakRef,
+    mkWeakRefValue,
+    deRefWeaks,
+  )
+where
 
 import Data.Hashable
 import Data.IORef
@@ -14,9 +25,7 @@ import qualified GHC.STRef as GHC
 import qualified GHC.Weak as GHC
 import System.Mem.Weak
 
-{-----------------------------------------------------------------------------
-    IORefs that can be hashed
-------------------------------------------------------------------------------}
+-- | IORefs that can be hashed
 data Ref a
   = Ref !(IORef a) !Unique
 
@@ -35,13 +44,13 @@ readRef :: Ref a -> IO a
 readRef ~(Ref ref _) =
   readIORef ref
 
-put :: Ref a -> a -> IO ()
-put ~(Ref ref _) =
+writeRef :: Ref a -> a -> IO ()
+writeRef ~(Ref ref _) =
   writeIORef ref
 
 -- | Strictly modify a 'Ref'.
-modify' :: Ref a -> (a -> a) -> IO ()
-modify' ~(Ref ref _) =
+modifyRef :: Ref a -> (a -> a) -> IO ()
+modifyRef ~(Ref ref _) =
   modifyIORef' ref
 
 {-----------------------------------------------------------------------------
@@ -60,8 +69,8 @@ mkWeakRef ref@(Ref ref' _) =
   mkWeakIORefValueFinalizer ref' ref (pure ())
 
 mkWeakRefValue :: Ref a -> value -> IO (Weak value)
-mkWeakRefValue (Ref ref _) v =
-  mkWeakIORefValue ref v
+mkWeakRefValue (Ref ref _) =
+  mkWeakIORefValue ref
 
 -- | Dereference a list of weak pointers while discarding dead ones.
 deRefWeaks :: [Weak v] -> IO [v]

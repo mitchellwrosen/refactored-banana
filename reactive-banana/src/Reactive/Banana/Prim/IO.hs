@@ -8,7 +8,7 @@ import Reactive.Banana.Prim.Combinators (mapP)
 import Reactive.Banana.Prim.Evaluation (step)
 import Reactive.Banana.Prim.Plumbing
 import Reactive.Banana.Prim.Types
-import Reactive.Banana.Prim.Util
+import Reactive.Banana.Type.Ref
 
 {-----------------------------------------------------------------------------
     Primitives connecting to the outside world
@@ -24,7 +24,7 @@ newInput = mdo
   key <- liftIO Lazy.newKey
   pulse <-
     liftIO $
-      newRef $
+      newRef
         Pulse
           { _keyP = key,
             _seenP = agesAgo,

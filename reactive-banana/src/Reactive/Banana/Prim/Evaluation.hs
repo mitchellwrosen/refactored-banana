@@ -19,7 +19,7 @@ import Data.Vault.Lazy (Vault)
 import qualified Reactive.Banana.Prim.OrderedBag as OB
 import Reactive.Banana.Prim.Plumbing
 import Reactive.Banana.Prim.Types
-import Reactive.Banana.Prim.Util
+import Reactive.Banana.Type.Ref
 import System.Mem.Weak
 
 type Queue = Q.MinPQueue Level
@@ -101,7 +101,7 @@ evaluateNode (L lw) = do
       a <- _evalLW -- calculate new latch value
       -- liftIO $ Strict.evaluate a      -- see Note [LatchStrictness]
       rememberLatchUpdate $ -- schedule value to be set later
-        modify' latch $ \l ->
+        modifyRef latch \l ->
           a `seq` l {_seenL = time, _valueL = a}
   return []
 evaluateNode (O o) = do
@@ -122,7 +122,7 @@ insertNodes (RWS.Tuple (time, _) _ _) = go
         then go xs q -- pulse has already been put into the queue once
         else do
           -- pulse needs to be scheduled for evaluation
-          put p $! pulse {_seenP = time}
+          writeRef p $! pulse {_seenP = time}
           go xs (Q.insert _levelP node q)
     go (node : xs) q = go xs (Q.insert ground node q)
 

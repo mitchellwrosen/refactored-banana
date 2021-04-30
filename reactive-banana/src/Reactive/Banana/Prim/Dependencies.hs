@@ -16,10 +16,11 @@ module Reactive.Banana.Prim.Dependencies
 where
 
 import Control.Monad
+import Data.Foldable (for_)
 import Data.Monoid
 import qualified Reactive.Banana.Prim.Graph as Graph
 import Reactive.Banana.Prim.Types
-import Reactive.Banana.Prim.Util
+import Reactive.Banana.Type.Ref
 import System.Mem.Weak
 
 {-----------------------------------------------------------------------------
@@ -59,7 +60,7 @@ connectChild ::
   IO (Weak SomeNode)
 connectChild parent child = do
   w <- mkWeakNodeValue child child
-  modify' parent $ update childrenP (w :)
+  modifyRef parent (update childrenP (w :))
   mkWeakNodeValue child (P parent) -- child keeps parent alive
 
 -- | Add a child node to a parent node and update evaluation order.
@@ -69,7 +70,7 @@ doAddChild (P parent) (P child) = do
   level2 <- _levelP <$> readRef parent
   let level = level1 `max` (level2 + 1)
   w <- parent `connectChild` P child
-  modify' child $ set levelP level . update parentsP (w :)
+  modifyRef child (set levelP level . update parentsP (w :))
 doAddChild (P parent) node = void $ parent `connectChild` node
 doAddChild x y = do
   sx <- printNode x
@@ -85,9 +86,9 @@ removeParents child = do
     Just (P parent) <- deRefWeak w -- get parent node
     finalize w -- severe connection in garbage collector
     new <- filterM isGoodChild . _childrenP =<< readRef parent
-    modify' parent $ set childrenP new
+    modifyRef parent (set childrenP new)
   -- replace parents by empty list
-  put child $ c {_parentsP = []}
+  writeRef child c {_parentsP = []}
   where
     isGoodChild w = not . maybe True (== P child) <$> deRefWeak w
 
@@ -97,7 +98,7 @@ doChangeParent child parent = do
   -- remove all previous parents and connect to new parent
   removeParents child
   w <- parent `connectChild` (P child)
-  modify' child $ update parentsP (w :)
+  modifyRef child (update parentsP (w :))
 
   -- calculate level difference between parent and node
   levelParent <- _levelP <$> readRef parent
@@ -108,8 +109,8 @@ doChangeParent child parent = do
   -- lower all parents of the node if the parent was higher than the node
   when (d > 0) $ do
     parents <- Graph.dfs (P parent) getParents
-    forM_ parents $ \(P node) -> do
-      modify' node $ update levelP (subtract d)
+    for_ parents \(P node) -> do
+      modifyRef node (update levelP (subtract d))
 
 {-----------------------------------------------------------------------------
     Helper functions

@@ -83,7 +83,7 @@ Library
                         Reactive.Banana.Prim.Plumbing,
                         Reactive.Banana.Prim.Test,
                         Reactive.Banana.Prim.Types,
-                        Reactive.Banana.Prim.Util,
+                        Reactive.Banana.Type.Ref,
                         Reactive.Banana.Types
 
 Test-Suite tests

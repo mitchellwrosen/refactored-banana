@@ -13,7 +13,7 @@ import Data.Vault.Lazy (Vault)
 import qualified Data.Vault.Lazy as Vault
 import Reactive.Banana.Prim.Graph (Graph)
 import Reactive.Banana.Prim.OrderedBag as OB (OrderedBag, empty)
-import Reactive.Banana.Prim.Util
+import Reactive.Banana.Type.Ref
 import System.IO.Unsafe
 import System.Mem.Weak
 
