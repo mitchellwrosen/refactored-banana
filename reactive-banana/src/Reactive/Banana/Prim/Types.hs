@@ -50,7 +50,7 @@ emptyNetwork =
       nAlwaysP = Nothing
     }
 
-type Build = ReaderWriterIOT BuildR BuildW
+type Build = RWIO BuildR BuildW
 
 type BuildR = (Time, Pulse ())
 
@@ -194,7 +194,7 @@ type EvalP = RWSIOT BuildR (EvalPW, BuildW) Lazy.Vault IO
 -- state  : current pulse values
 
 -- Computation with a timestamp that indicates the last time it was performed.
-type EvalL = ReaderWriterIOT () Time
+type EvalL = RWIO () Time
 
 {-----------------------------------------------------------------------------
     Show functions for debugging

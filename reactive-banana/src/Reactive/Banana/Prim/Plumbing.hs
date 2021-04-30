@@ -173,7 +173,7 @@ runBuildIO i m =
     -- Recursively execute the  buildLater  calls.
     unfold :: BuildW -> BuildIO a -> IO (a, BuildW)
     unfold w m = do
-      (a, BuildW (w1, w2, w3, later)) <- RW.runReaderWriterIOT m i
+      (a, BuildW (w1, w2, w3, later)) <- RW.runReaderWriterIO m i
       let w' = w <> BuildW (w1, w2, w3, mempty)
       w'' <- case later of
         Just m -> snd <$> unfold w' m
@@ -236,7 +236,7 @@ liftIOLater x = RW.tell $ BuildW (mempty, mempty, x, mempty)
 readLatchIO :: Latch a -> IO a
 readLatchIO latch = do
   Latch {..} <- readRef latch
-  liftIO $ fst <$> RW.runReaderWriterIOT _evalL ()
+  liftIO $ fst <$> RW.runReaderWriterIO _evalL ()
 
 getValueL :: Latch a -> EvalL a
 getValueL latch = do
@@ -247,13 +247,13 @@ getValueL latch = do
     EvalP monad
 ------------------------------------------------------------------------------}
 runEvalP :: Lazy.Vault -> EvalP a -> Build (a, EvalPW)
-runEvalP s1 m = RW.readerWriterIOT $ \r2 -> do
+runEvalP s1 m = RW.readerWriterIO $ \r2 -> do
   (a, _, (w1, w2)) <- RWS.runRWSIOT m r2 s1
   return ((a, w1), w2)
 
 liftBuildP :: Build a -> EvalP a
 liftBuildP m = RWS.rwsT $ \r2 s -> do
-  (a, w2) <- RW.runReaderWriterIOT m r2
+  (a, w2) <- RW.runReaderWriterIO m r2
   return (a, s, (mempty, w2))
 
 askTime :: EvalP Time

@@ -7,9 +7,9 @@ module Control.Monad.Trans.ReaderWriterIO
     -- using an 'IORef' for the writer.
 
     -- * Documentation
-    ReaderWriterIOT,
-    readerWriterIOT,
-    runReaderWriterIOT,
+    RWIO,
+    readerWriterIO,
+    runReaderWriterIO,
     tell,
     listen,
     ask,
@@ -29,63 +29,63 @@ import Data.Semigroup
 {-----------------------------------------------------------------------------
     Type and class instances
 ------------------------------------------------------------------------------}
-newtype ReaderWriterIOT r w a = ReaderWriterIOT {run :: r -> IORef w -> IO a}
+newtype RWIO r w a = RWIO {run :: r -> IORef w -> IO a}
 
-instance Functor (ReaderWriterIOT r w) where
-  fmap f m = ReaderWriterIOT $ \x y -> fmap f (run m x y)
+instance Functor (RWIO r w) where
+  fmap f m = RWIO $ \x y -> fmap f (run m x y)
 
-instance Applicative (ReaderWriterIOT r w) where
-  pure a = ReaderWriterIOT $ \_ _ -> pure a
-  f <*> a = ReaderWriterIOT $ \x y -> run f x y <*> run a x y
+instance Applicative (RWIO r w) where
+  pure a = RWIO $ \_ _ -> pure a
+  f <*> a = RWIO $ \x y -> run f x y <*> run a x y
 
-instance Monad (ReaderWriterIOT r w) where
-  return a = ReaderWriterIOT $ \_ _ -> return a
-  m >>= k = ReaderWriterIOT $ \x y -> run m x y >>= \a -> run (k a) x y
+instance Monad (RWIO r w) where
+  return a = RWIO $ \_ _ -> return a
+  m >>= k = RWIO $ \x y -> run m x y >>= \a -> run (k a) x y
 
-instance MonadFix (ReaderWriterIOT r w) where
-  mfix f = ReaderWriterIOT $ \x y -> mfix (\a -> run (f a) x y)
+instance MonadFix (RWIO r w) where
+  mfix f = RWIO $ \x y -> mfix (\a -> run (f a) x y)
 
-instance MonadIO (ReaderWriterIOT r w) where
-  liftIO m = ReaderWriterIOT \_ _ -> m
+instance MonadIO (RWIO r w) where
+  liftIO m = RWIO \_ _ -> m
 
-instance (a ~ ()) => Semigroup (ReaderWriterIOT r w a) where
+instance (a ~ ()) => Semigroup (RWIO r w a) where
   mx <> my = mx >> my
 
-instance (a ~ ()) => Monoid (ReaderWriterIOT r w a) where
+instance (a ~ ()) => Monoid (RWIO r w a) where
   mempty = return ()
   mappend = (<>)
 
 {-----------------------------------------------------------------------------
     Functions
 ------------------------------------------------------------------------------}
-readerWriterIOT ::
+readerWriterIO ::
   (Monoid w) =>
   (r -> IO (a, w)) ->
-  ReaderWriterIOT r w a
-readerWriterIOT f = do
+  RWIO r w a
+readerWriterIO f = do
   r <- ask
   (a, w) <- liftIO $ f r
   tell w
   return a
 
-runReaderWriterIOT :: Monoid w => ReaderWriterIOT r w a -> r -> IO (a, w)
-runReaderWriterIOT m r = do
+runReaderWriterIO :: Monoid w => RWIO r w a -> r -> IO (a, w)
+runReaderWriterIO m r = do
   ref <- newIORef mempty
   a <- run m r ref
   w <- readIORef ref
   return (a, w)
 
-tell :: (Monoid w) => w -> ReaderWriterIOT r w ()
-tell w = ReaderWriterIOT $ \_ ref -> modifyIORef ref (`mappend` w)
+tell :: (Monoid w) => w -> RWIO r w ()
+tell w = RWIO $ \_ ref -> modifyIORef ref (`mappend` w)
 
-listen :: (Monoid w) => ReaderWriterIOT r w a -> ReaderWriterIOT r w (a, w)
-listen m = ReaderWriterIOT $ \r ref -> do
+listen :: (Monoid w) => RWIO r w a -> RWIO r w (a, w)
+listen m = RWIO $ \r ref -> do
   a <- run m r ref
   w <- readIORef ref
   return (a, w)
 
-local :: (r -> r) -> ReaderWriterIOT r w a -> ReaderWriterIOT r w a
-local f m = ReaderWriterIOT $ \r ref -> run m (f r) ref
+local :: (r -> r) -> RWIO r w a -> RWIO r w a
+local f m = RWIO $ \r ref -> run m (f r) ref
 
-ask :: ReaderWriterIOT r w r
-ask = ReaderWriterIOT $ \r _ -> return r
+ask :: RWIO r w r
+ask = RWIO $ \r _ -> return r
