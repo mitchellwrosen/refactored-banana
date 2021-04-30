@@ -3,9 +3,9 @@
 module Reactive.Banana.Prim.Compile where
 
 import Control.Exception (evaluate)
-import Control.Monad (void)
 import Data.Functor
 import Data.IORef
+import Data.List (foldl')
 import Reactive.Banana.Prim.Combinators
 import Reactive.Banana.Prim.IO
 import qualified Reactive.Banana.Prim.OrderedBag as OB
@@ -33,7 +33,7 @@ compile m state1 = do
   let state2 =
         Network
           { nTime = next time1,
-            nOutputs = OB.inserts outputs1 os,
+            nOutputs = foldl' OB.insert outputs1 os,
             nAlwaysP = Just theAlwaysP
           }
   return (a, state2)
@@ -52,18 +52,18 @@ interpret :: (Pulse a -> BuildIO (Pulse b)) -> [Maybe a] -> IO [Maybe b]
 interpret f xs = do
   o <- newIORef Nothing
   let network = do
-        (pin, sin) <- newInput
+        (pin, fire) <- newInput
         pmid <- f pin
         pout <- mapP return pmid
         addHandler pout (writeIORef o . Just)
-        return sin
+        return fire
 
   -- compile initial network
-  (sin, state) <- compile network emptyNetwork
+  (fire, state) <- compile network emptyNetwork
 
   let go Nothing s1 = return (Nothing, s1)
       go (Just a) s1 = do
-        (reactimate, s2) <- sin a s1
+        (reactimate, s2) <- fire a s1
         reactimate -- write output
         ma <- readIORef o -- read output
         writeIORef o Nothing

@@ -22,7 +22,6 @@ module Reactive.Banana.Frameworks
     MomentIO,
     module Control.Event.Handler,
     fromAddHandler,
-    fromChanges,
     fromPoll,
     reactimate,
     Future,
@@ -52,11 +51,13 @@ module Reactive.Banana.Frameworks
 where
 
 import Control.Event.Handler
-import Control.Monad
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Class (lift)
 import Data.IORef
+import Data.Traversable (for)
 import Reactive.Banana.Combinators
 import qualified Reactive.Banana.Internal.Combinators as Prim
+import qualified Reactive.Banana.Prim as Prim (liftIOLater)
 import Reactive.Banana.Types
 
 {-----------------------------------------------------------------------------
@@ -195,15 +196,6 @@ fromAddHandler = MIO . fmap E . Prim.fromAddHandler
 fromPoll :: IO a -> MomentIO (Behavior a)
 fromPoll = MIO . fmap B . Prim.fromPoll
 
--- | Input,
--- obtain a 'Behavior' from an 'AddHandler' that notifies changes.
---
--- This is essentially just an application of the 'stepper' combinator.
-fromChanges :: a -> AddHandler a -> MomentIO (Behavior a)
-fromChanges initial changes = do
-  e <- fromAddHandler changes
-  stepper initial e
-
 -- | Output,
 -- return an 'Event' that is adapted to the changes of a 'Behavior'.
 --
@@ -303,7 +295,7 @@ execute = MIO . fmap E . Prim.executeE . Prim.mapE unMIO . unE
 -- but defer its execution until compilation time.
 -- This can be useful for recursive definitions using 'MonadFix'.
 liftIOLater :: IO () -> MomentIO ()
-liftIOLater = MIO . Prim.liftIOLater
+liftIOLater = MIO . lift . Prim.liftIOLater
 
 -- | Compile the description of an event network
 -- into an 'EventNetwork'
@@ -406,15 +398,13 @@ interpretFrameworks f xs = do
     reactimate $ writeIORef output . Just <$> e2
 
   actuate network
-  bs <- forM xs $ \x -> do
-    case x of
-      Nothing -> return Nothing
-      Just x -> do
-        runHandlers x
-        b <- readIORef output
-        writeIORef output Nothing
-        return b
-  return bs
+  for xs \case
+    Nothing -> return Nothing
+    Just x -> do
+      runHandlers x
+      b <- readIORef output
+      writeIORef output Nothing
+      return b
 
 -- | Simple way to write a single event handler with
 -- functional reactive programming.

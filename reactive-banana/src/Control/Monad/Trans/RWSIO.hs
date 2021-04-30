@@ -16,14 +16,10 @@ module Control.Monad.Trans.RWSIO
   )
 where
 
-import Control.Applicative
-import Control.Monad
 import Control.Monad.Fix
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Data.IORef
-import Data.Monoid
 
 {-----------------------------------------------------------------------------
     Type and class instances
@@ -40,20 +36,20 @@ newtype RWSIO r w s a = R {run :: Tuple r w s -> IO a}
 rws :: (Monoid w) => (r -> s -> IO (a, s, w)) -> RWSIO r w s a
 rws f = do
   r <- ask
-  s <- get
-  (a, s, w) <- liftIO $ f r s
-  put s
+  s0 <- get
+  (a, s1, w) <- liftIO $ f r s0
+  put s1
   tell w
-  return a
+  pure a
 
 runRWSIO :: (Monoid w) => RWSIO r w s a -> (r -> s -> IO (a, s, w))
 runRWSIO m r s = do
   w' <- newIORef mempty
   s' <- newIORef s
   a <- run m (Tuple r w' s')
-  s <- readIORef s'
+  s1 <- readIORef s'
   w <- readIORef w'
-  return (a, s, w)
+  return (a, s1, w)
 
 tell :: (Monoid w) => w -> RWSIO r w s ()
 tell w = R $ \(Tuple _ w' _) -> modifyIORef w' (`mappend` w)

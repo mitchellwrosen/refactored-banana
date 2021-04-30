@@ -17,8 +17,6 @@ import Data.IORef
 import qualified Data.Map as Map
 import qualified Data.Unique
 
-type Map = Map.Map
-
 {-----------------------------------------------------------------------------
     Types
 ------------------------------------------------------------------------------}

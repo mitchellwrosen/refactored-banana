@@ -3,10 +3,9 @@
 
 module Reactive.Banana.Prim.Combinators where
 
-import Control.Applicative
 import Control.Monad
 import Control.Monad.IO.Class
-import Debug.Trace
+import Data.Function ((&))
 import Reactive.Banana.Prim.Plumbing
   ( cachedLatch,
     changeParent,
@@ -94,10 +93,10 @@ applyL lf lx =
 
 accumL :: a -> Pulse (a -> a) -> Build (Latch a, Pulse a)
 accumL a p1 = do
-  (updateOn, x) <- liftIO (newLatch a)
-  p2 <- applyP (mapL (\x f -> f x) x) p1
+  (updateOn, latch) <- liftIO (newLatch a)
+  p2 <- applyP (mapL (&) latch) p1
   updateOn p2
-  return (x, p2)
+  return (latch, p2)
 
 -- specialization of accumL
 stepperL :: a -> Pulse a -> Build (Latch a)

@@ -7,16 +7,13 @@ module Reactive.Banana.Internal.Combinators where
 import Control.Concurrent.MVar
 import Control.Event.Handler
 import Control.Monad
-import Control.Monad.Fix
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader
-import Data.Functor
-import Data.Functor.Identity
 import Data.IORef
 import Reactive.Banana.Prim (Build, Future, Latch, Pulse)
 import qualified Reactive.Banana.Prim as Prim
-import Reactive.Banana.Prim.Cached
+import System.IO.Unsafe (unsafePerformIO)
 
 {-----------------------------------------------------------------------------
     Types
@@ -70,8 +67,8 @@ compile setup = do
             pause = writeIORef actuated False
           }
 
-  (output, s0) <- -- compile initial graph
-    Prim.compile (runReaderT setup eventNetwork) Prim.emptyNetwork
+  -- compile initial graph
+  (_output, s0) <- Prim.compile (runReaderT setup eventNetwork) Prim.emptyNetwork
   putMVar s s0 -- set initial state
   return eventNetwork
 
@@ -79,8 +76,8 @@ fromAddHandler :: AddHandler a -> Moment (Event a)
 fromAddHandler addHandler = do
   (p, fire) <- lift Prim.newInput
   network <- ask
-  liftIO $ register addHandler $ runStep network . fire
-  return $ pure p
+  _unregister <- liftIO (register addHandler (runStep network . fire))
+  pure (pure p)
 
 addReactimate :: Event (Future (IO ())) -> Moment ()
 addReactimate e = do
@@ -98,9 +95,6 @@ fromPoll poll = do
     p <- Prim.unsafeMapIOP (const poll) =<< Prim.alwaysP
     return $ pure p
   stepperB a e
-
-liftIOLater :: IO () -> Moment ()
-liftIOLater = lift . Prim.liftIOLater
 
 imposeChanges :: Behavior a -> Event () -> Behavior a
 imposeChanges behavior event =
@@ -260,3 +254,20 @@ switchB b e = do
 merge :: Pulse () -> Pulse () -> Build (Pulse ())
 merge =
   Prim.unionWithP (\_ _ -> ())
+
+-- | An action whose result will be cached.
+-- Executing the action the first time in the monad will
+-- execute the side effects. From then on,
+-- only the generated value will be returned.
+{-# NOINLINE cache #-}
+cache :: Moment a -> Moment a
+cache action =
+  unsafePerformIO do
+    resultRef <- liftIO (newIORef Nothing)
+    pure do
+      liftIO (readIORef resultRef) >>= \case
+        Nothing -> mdo
+          liftIO (writeIORef resultRef (Just result))
+          result <- action
+          pure result
+        Just result -> pure result

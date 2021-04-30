@@ -13,10 +13,8 @@ module Reactive.Banana.Types
 where
 
 import Control.Applicative
-import Control.Monad
 import Control.Monad.Fix
 import Control.Monad.IO.Class
-import Data.Semigroup
 import Data.String (IsString (..))
 import qualified Reactive.Banana.Internal.Combinators as Prim
 import qualified Reactive.Banana.Prim as Prim (Future)

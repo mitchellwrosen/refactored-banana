@@ -3,8 +3,6 @@
 module Reactive.Banana.Prim.IO where
 
 import Control.Monad.IO.Class
-import Data.Functor
-import Data.IORef
 import qualified Data.Vault.Lazy as Lazy
 import Reactive.Banana.Prim.Combinators (mapP)
 import Reactive.Banana.Prim.Evaluation (step)

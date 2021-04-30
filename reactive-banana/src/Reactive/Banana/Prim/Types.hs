@@ -6,11 +6,8 @@
 module Reactive.Banana.Prim.Types where
 
 import Control.Monad.Trans.RWSIO
-import Control.Monad.Trans.Reader
 import Control.Monad.Trans.ReaderWriterIO
-import Data.Functor
 import Data.Hashable
-import Data.Monoid (Monoid, mappend, mempty)
 import Data.Semigroup
 import Data.Vault.Lazy (Vault)
 import qualified Data.Vault.Lazy as Vault
@@ -30,8 +27,6 @@ data Network = Network
     nOutputs :: !(OrderedBag Output), -- Remember outputs to prevent garbage collection.
     nAlwaysP :: !(Maybe (Pulse ())) -- Pulse that always fires.
   }
-
-type Inputs = ([SomeNode], Vault)
 
 type EvalNetwork a = Network -> IO (a, Network)
 
@@ -85,10 +80,10 @@ ground = 0
 data Lens s a = Lens (s -> a) (a -> s -> s)
 
 set :: Lens s a -> a -> s -> s
-set (Lens _ set) = set
+set (Lens _ f) = f
 
 update :: Lens s a -> (a -> a) -> s -> s
-update (Lens get set) f = \s -> set (f $ get s) s
+update (Lens lg lf) f = \s -> lf (f $ lg s) s
 
 {-----------------------------------------------------------------------------
     Pulse and Latch
@@ -143,9 +138,10 @@ instance Hashable SomeNode where
   hashWithSalt s (O x) = hashWithSalt s x
 
 instance Eq SomeNode where
-  (P x) == (P y) = equalRef x y
-  (L x) == (L y) = equalRef x y
-  (O x) == (O y) = equalRef x y
+  P x == P y = equalRef x y
+  L x == L y = equalRef x y
+  O x == O y = equalRef x y
+  x == y = error (unsafePerformIO (printNode x) ++ " /= " ++ unsafePerformIO (printNode y))
 
 {-# INLINE mkWeakNodeValue #-}
 mkWeakNodeValue :: SomeNode -> v -> IO (Weak v)
@@ -196,8 +192,8 @@ type EvalL = RWIO () Time
 ------------------------------------------------------------------------------}
 printNode :: SomeNode -> IO String
 printNode (P p) = _nameP <$> readRef p
-printNode (L l) = return "L"
-printNode (O o) = return "O"
+printNode (L _) = return "L"
+printNode (O _) = return "O"
 
 {-----------------------------------------------------------------------------
     Time monoid

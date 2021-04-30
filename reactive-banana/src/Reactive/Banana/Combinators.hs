@@ -64,8 +64,6 @@ module Reactive.Banana.Combinators
 where
 
 import Control.Applicative
-import Control.Monad
-import Data.Maybe (catMaybes, isJust)
 import Data.Semigroup
 import qualified Reactive.Banana.Internal.Combinators as Prim
 import Reactive.Banana.Types
@@ -323,15 +321,8 @@ whenE bf = filterApply (const <$> bf)
 -- The 'Left' values go into the left component while the 'Right' values
 -- go into the right component of the result.
 split :: Event (Either a b) -> (Event a, Event b)
-split e = (filterJust $ fromLeft <$> e, filterJust $ fromRight <$> e)
-  where
-    fromLeft :: Either a b -> Maybe a
-    fromLeft (Left a) = Just a
-    fromLeft (Right b) = Nothing
-
-    fromRight :: Either a b -> Maybe b
-    fromRight (Left a) = Nothing
-    fromRight (Right b) = Just b
+split e =
+  (filterJust $ either Just (const Nothing) <$> e, filterJust $ either (const Nothing) Just <$> e)
 
 -- $Accumulation.
 -- Note: All accumulation functions are strict in the accumulated value!
@@ -374,4 +365,4 @@ mapAccum acc ef = do
   b <- stepper acc (snd <$> e)
   return (fst <$> e, b)
   where
-    lift f (_, acc) = acc `seq` f acc
+    lift f (_, !x) = f x

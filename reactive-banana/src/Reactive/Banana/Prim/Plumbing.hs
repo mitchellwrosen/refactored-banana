@@ -7,16 +7,11 @@ module Reactive.Banana.Prim.Plumbing where
 
 import Control.Monad (join)
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Class
 import qualified Control.Monad.Trans.RWSIO as RWS
-import qualified Control.Monad.Trans.Reader as Reader
 import qualified Control.Monad.Trans.ReaderWriterIO as RW
-import Data.Function (on)
 import Data.Functor
 import Data.IORef
-import Data.List (sortBy)
 import Data.Maybe (fromJust, fromMaybe)
-import Data.Monoid
 import Data.Vault.Lazy (Vault)
 import qualified Data.Vault.Lazy as Vault
 import qualified Reactive.Banana.Prim.Dependencies as Deps
@@ -153,8 +148,8 @@ addOutput p = do
     Build monad
 ------------------------------------------------------------------------------}
 runBuildIO :: BuildR -> BuildIO a -> IO (a, IO (), [Output])
-runBuildIO i m = do
-  (a, BuildW (topologyUpdates, os, liftIOLaters, _)) <- unfold mempty m
+runBuildIO i m0 = do
+  (a, BuildW (topologyUpdates, os, liftIOLaters, _)) <- unfold mempty m0
   liftIOLaters -- execute late IOs
   return (a, Deps.buildDependencies topologyUpdates, os)
   where
@@ -164,7 +159,7 @@ runBuildIO i m = do
       (a, BuildW (w1, w2, w3, later)) <- RW.runReaderWriterIO m i
       let w' = w <> BuildW (w1, w2, w3, mempty)
       w'' <- case later of
-        Just m -> snd <$> unfold w' m
+        Just m1 -> snd <$> unfold w' m1
         Nothing -> return w'
       return (a, w'')
 

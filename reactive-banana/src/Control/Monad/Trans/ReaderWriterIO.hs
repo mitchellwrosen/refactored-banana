@@ -17,15 +17,10 @@ module Control.Monad.Trans.ReaderWriterIO
   )
 where
 
-import Control.Applicative
-import Control.Monad
 import Control.Monad.Fix
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Data.IORef
-import Data.Monoid
-import Data.Semigroup
 
 {-----------------------------------------------------------------------------
     Type and class instances

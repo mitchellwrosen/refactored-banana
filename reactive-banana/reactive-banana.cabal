@@ -40,7 +40,8 @@ Source-repository head
     subdir:             reactive-banana/
 
 Library
-    default-extensions: BlockArguments
+    default-extensions: BangPatterns
+                        BlockArguments
                         DeriveFunctor
                         DerivingStrategies
                         DerivingVia
@@ -50,6 +51,7 @@ Library
                         ScopedTypeVariables
     default-language:   Haskell98
     hs-source-dirs:     src
+    ghc-options:        -Wall
 
     build-depends:      base >= 4.2 && < 5,
                         semigroups >= 0.13 && < 0.20,
@@ -65,9 +67,7 @@ Library
                         Reactive.Banana,
                         Reactive.Banana.Combinators,
                         Reactive.Banana.Frameworks,
-                        Reactive.Banana.Model,
-                        Reactive.Banana.Prim,
-                        Reactive.Banana.Prim.Cached
+                        Reactive.Banana.Prim
 
     other-modules:
                         Control.Monad.Trans.ReaderWriterIO,

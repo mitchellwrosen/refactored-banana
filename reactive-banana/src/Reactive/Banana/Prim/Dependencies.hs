@@ -16,7 +16,6 @@ module Reactive.Banana.Prim.Dependencies
 where
 
 import Control.Monad
-import Data.Functor
 import Data.Monoid
 import qualified Reactive.Banana.Prim.Graph as Graph
 import Reactive.Banana.Prim.Types
@@ -72,6 +71,10 @@ doAddChild (P parent) (P child) = do
   w <- parent `connectChild` P child
   modify' child $ set levelP level . update parentsP (w :)
 doAddChild (P parent) node = void $ parent `connectChild` node
+doAddChild x y = do
+  sx <- printNode x
+  sy <- printNode y
+  error ("doAddChild (" ++ sx ++ ") (" ++ sy ++ ")")
 
 -- | Remove a node from its parents and all parents from this node.
 removeParents :: Pulse a -> IO ()
@@ -81,11 +84,12 @@ removeParents child = do
   forM_ _parentsP $ \w -> do
     Just (P parent) <- deRefWeak w -- get parent node
     finalize w -- severe connection in garbage collector
-    let isGoodChild w = not . maybe True (== P child) <$> deRefWeak w
     new <- filterM isGoodChild . _childrenP =<< readRef parent
     modify' parent $ set childrenP new
   -- replace parents by empty list
   put child $ c {_parentsP = []}
+  where
+    isGoodChild w = not . maybe True (== P child) <$> deRefWeak w
 
 -- | Set the parent of a pulse to a different pulse.
 doChangeParent :: Pulse a -> Pulse b -> IO ()
@@ -110,10 +114,6 @@ doChangeParent child parent = do
 {-----------------------------------------------------------------------------
     Helper functions
 ------------------------------------------------------------------------------}
-getChildren :: SomeNode -> IO [SomeNode]
-getChildren (P p) = deRefWeaks =<< fmap _childrenP (readRef p)
-getChildren _ = return []
-
 getParents :: SomeNode -> IO [SomeNode]
-getParents (P p) = deRefWeaks =<< fmap _parentsP (readRef p)
+getParents (P p) = deRefWeaks . _parentsP =<< readRef p
 getParents _ = return []

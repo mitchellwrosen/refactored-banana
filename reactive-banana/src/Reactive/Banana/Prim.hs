@@ -25,9 +25,6 @@ module Reactive.Banana.Prim
     compile,
     module Control.Monad.IO.Class,
 
-    -- * Caching
-    module Reactive.Banana.Prim.Cached,
-
     -- * Testing
     interpret,
     mapAccumM,
@@ -69,7 +66,6 @@ module Reactive.Banana.Prim
 where
 
 import Control.Monad.IO.Class
-import Reactive.Banana.Prim.Cached
 import Reactive.Banana.Prim.Combinators
 import Reactive.Banana.Prim.Compile
 import Reactive.Banana.Prim.IO
@@ -116,12 +112,6 @@ import Reactive.Banana.Prim.Types
 -- this allows us to build combinators that can be used recursively.
 -- One notable exception is the 'readLatch' function, which must
 -- inspect its argument in order to be able to read its value.
-
-test :: Build (Pulse ())
-test = mdo
-  p1 <- mapP (const ()) p2
-  p2 <- liftIO neverP
-  return p1
 
 -- Note [LatchStrictness]
 {-
