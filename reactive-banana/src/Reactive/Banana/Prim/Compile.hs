@@ -33,7 +33,7 @@ compile m state1 = do
       return x
 
   (a, topology, os) <- runBuildIO (nTime state1, theAlwaysP) m
-  doit topology
+  topology
 
   let state2 =
         Network

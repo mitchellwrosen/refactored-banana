@@ -56,7 +56,7 @@ type BuildR = (Time, Pulse ())
 
 -- ( current time
 -- , pulse that always fires)
-newtype BuildW = BuildW (DependencyBuilder, [Output], Action, Maybe (Build ()))
+newtype BuildW = BuildW (DependencyBuilder, [Output], IO (), Maybe (Build ()))
 
 -- reader : current timestamp
 -- writer : ( actions that change the network topology
@@ -85,16 +85,6 @@ type Level = Int
 
 ground :: Level
 ground = 0
-
--- | 'IO' actions as a monoid with respect to sequencing.
-newtype Action = Action {doit :: IO ()}
-
-instance Semigroup Action where
-  Action x <> Action y = Action (x >> y)
-
-instance Monoid Action where
-  mempty = Action $ return ()
-  mappend = (<>)
 
 -- | Lens-like functionality.
 data Lens s a = Lens (s -> a) (a -> s -> s)
@@ -190,7 +180,7 @@ levelP = Lens _levelP (\a s -> s {_levelP = a})
 -- | Evaluation monads.
 type EvalPW = (EvalLW, [(Output, EvalO)])
 
-type EvalLW = Action
+type EvalLW = IO ()
 
 type EvalO = Future (IO ())
 

@@ -51,8 +51,8 @@ step
           runEvalP pulses $
             evaluatePulses inputs
 
-      doit latchUpdates -- update latch values from pulses
-      doit topologyUpdates -- rearrange graph topology
+      latchUpdates -- update latch values from pulses
+      topologyUpdates -- rearrange graph topology
       let actions :: [(Output, EvalO)]
           actions = OB.inOrder outputs outputs1 -- EvalO actions in proper order
           state2 :: Network

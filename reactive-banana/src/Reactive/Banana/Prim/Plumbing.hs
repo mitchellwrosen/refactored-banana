@@ -162,13 +162,13 @@ addOutput p = do
 {-----------------------------------------------------------------------------
     Build monad
 ------------------------------------------------------------------------------}
-runBuildIO :: BuildR -> BuildIO a -> IO (a, Action, [Output])
+runBuildIO :: BuildR -> BuildIO a -> IO (a, IO (), [Output])
 runBuildIO i m =
   {-# SCC runBuild #-}
   do
     (a, BuildW (topologyUpdates, os, liftIOLaters, _)) <- unfold mempty m
-    doit $ liftIOLaters -- execute late IOs
-    return (a, Action $ Deps.buildDependencies topologyUpdates, os)
+    liftIOLaters -- execute late IOs
+    return (a, Deps.buildDependencies topologyUpdates, os)
   where
     -- Recursively execute the  buildLater  calls.
     unfold :: BuildW -> BuildIO a -> IO (a, BuildW)
@@ -225,7 +225,7 @@ changeParent node parent =
   RW.tell $ BuildW (Deps.changeParent node parent, mempty, mempty, mempty)
 
 liftIOLater :: IO () -> Build ()
-liftIOLater x = RW.tell $ BuildW (mempty, mempty, Action x, mempty)
+liftIOLater x = RW.tell $ BuildW (mempty, mempty, x, mempty)
 
 {-----------------------------------------------------------------------------
     EvalL monad
@@ -276,7 +276,7 @@ readLatchFutureP :: Latch a -> EvalP (Future a)
 readLatchFutureP = return . readLatchIO
 
 rememberLatchUpdate :: IO () -> EvalP ()
-rememberLatchUpdate x = RWS.tell ((Action x, mempty), mempty)
+rememberLatchUpdate x = RWS.tell ((x, mempty), mempty)
 
 rememberOutput :: (Output, EvalO) -> EvalP ()
 rememberOutput x = RWS.tell ((mempty, [x]), mempty)
