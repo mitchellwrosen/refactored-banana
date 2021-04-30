@@ -42,6 +42,7 @@ Source-repository head
 Library
     default-extensions: BlockArguments
                         LambdaCase
+                        ScopedTypeVariables
     default-language:   Haskell98
     hs-source-dirs:     src
 
