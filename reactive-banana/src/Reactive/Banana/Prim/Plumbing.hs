@@ -12,11 +12,14 @@ import qualified Control.Monad.Trans.ReaderWriterIO as RW
 import Data.Functor
 import Data.IORef
 import Data.Maybe (fromJust, fromMaybe)
+import Data.Monoid (Endo (..))
 import Data.Vault.Lazy (Vault)
 import qualified Data.Vault.Lazy as Vault
 import qualified Reactive.Banana.Prim.Dependencies as Deps
 import Reactive.Banana.Prim.Types
+import qualified Reactive.Banana.Type.Graph as Graph
 import Reactive.Banana.Type.Ref
+import Reactive.Banana.Type.Time (Time, agesAgo, beginning)
 import System.IO.Unsafe
 
 {-----------------------------------------------------------------------------
@@ -101,7 +104,7 @@ newLatch a = mdo
             -- writer is alive only as long as the latch is alive
             latch `keepAlive` lw
             pure lw
-        P p `addChild` L lw
+        p `addChild` L lw
 
   return (updateOn, latch)
 
@@ -141,30 +144,31 @@ addOutput p = do
         Output
           { _evalO = fromMaybe (pure (pure ())) <$> readPulseP p
           }
-  P p `addChild` O o
-  RW.tell $ BuildW (mempty, [o], mempty, mempty)
+  p `addChild` O o
+  RW.tell mempty {newOutputs = [o]}
 
 {-----------------------------------------------------------------------------
     Build monad
 ------------------------------------------------------------------------------}
-runBuildIO :: BuildR -> BuildIO a -> IO (a, IO (), [Ref Output])
+runBuildIO :: BuildR -> Build a -> IO (a, IO (), [Ref Output])
 runBuildIO i m0 = do
-  (a, BuildW (topologyUpdates, os, liftIOLaters, _)) <- unfold mempty m0
+  (a, BuildW newEdges changedParents os liftIOLaters _) <- unfold mempty m0
   liftIOLaters -- execute late IOs
-  return (a, Deps.buildDependencies topologyUpdates, os)
+  pure (a, Deps.buildDependencies newEdges changedParents, os)
   where
     -- Recursively execute the  buildLater  calls.
-    unfold :: BuildW -> BuildIO a -> IO (a, BuildW)
+    unfold :: BuildW -> Build a -> IO (a, BuildW)
     unfold w m = do
-      (a, BuildW (w1, w2, w3, later)) <- RW.runReaderWriterIO m i
-      let w' = w <> BuildW (w1, w2, w3, mempty)
+      (a, BuildW w1 w2 w3 w4 later) <- RW.runReaderWriterIO m i
+      let w' = w <> BuildW w1 w2 w3 w4 mempty
       w'' <- case later of
         Just m1 -> snd <$> unfold w' m1
-        Nothing -> return w'
-      return (a, w'')
+        Nothing -> pure w'
+      pure (a, w'')
 
 buildLater :: Build () -> Build ()
-buildLater x = RW.tell $ BuildW (mempty, mempty, mempty, Just x)
+buildLater x =
+  RW.tell mempty {lateBuild = Just x}
 
 -- | Pretend to return a value right now,
 -- but do not actually calculate it until later.
@@ -187,26 +191,25 @@ getTimeB = (\(x, _) -> x) <$> RW.ask
 alwaysP :: Build (Ref (Pulse ()))
 alwaysP = (\(_, x) -> x) <$> RW.ask
 
-dependOn :: Ref (Pulse child) -> Ref (Pulse parent) -> Build ()
-dependOn child parent =
-  P parent `addChild` P child
-
 -- | @keepAlive p1 p2@ establishes a relationship between @p1@ and @p2@ such that if @p1@ is alive, @p2@ is also
 -- considered alive (even if all references to it are dropped).
 keepAlive :: Ref child -> Ref parent -> IO ()
 keepAlive child parent =
   void (mkWeakRefValue child parent)
 
-addChild :: Node -> Node -> Build ()
+addChild :: Ref (Pulse parent) -> Node -> Build ()
 addChild parent child =
-  RW.tell $ BuildW (Deps.addChild parent child, mempty, mempty, mempty)
+  RW.tell mempty {newEdges = Endo (Graph.insertEdge (P parent) child)}
 
+-- | Assign a new parent to a child node.
+-- INVARIANT: The child may have only one parent node.
 changeParent :: Ref (Pulse child) -> Ref (Pulse parent) -> Build ()
-changeParent node parent =
-  RW.tell $ BuildW (Deps.changeParent node parent, mempty, mempty, mempty)
+changeParent child parent =
+  RW.tell mempty {changedParents = [(P child, P parent)]}
 
 liftIOLater :: IO () -> Build ()
-liftIOLater x = RW.tell $ BuildW (mempty, mempty, x, mempty)
+liftIOLater x =
+  RW.tell mempty {lateIO = x}
 
 {-----------------------------------------------------------------------------
     EvalL monad

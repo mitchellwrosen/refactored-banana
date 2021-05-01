@@ -20,6 +20,7 @@ import Reactive.Banana.Prim.Plumbing
 import Reactive.Banana.Prim.Types
 import qualified Reactive.Banana.Type.OSet as OSet
 import Reactive.Banana.Type.Ref
+import Reactive.Banana.Type.Time (next)
 import System.Mem.Weak
 
 type Queue = Q.MinPQueue Level

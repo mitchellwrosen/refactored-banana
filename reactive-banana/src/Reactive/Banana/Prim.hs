@@ -18,7 +18,6 @@ module Reactive.Banana.Prim
     -- * Build FRP networks
     Build,
     liftIOLater,
-    BuildIO,
     buildLater,
     buildLaterReadNow,
     compile,

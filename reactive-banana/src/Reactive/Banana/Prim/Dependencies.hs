@@ -2,8 +2,6 @@
 
 module Reactive.Banana.Prim.Dependencies
   ( -- | Utilities for operating on node dependencies.
-    addChild,
-    changeParent,
     buildDependencies,
   )
 where
@@ -11,7 +9,7 @@ where
 import Control.Monad
 import Data.Foldable (for_)
 import Data.Monoid
-import Reactive.Banana.Prim.Types
+import Reactive.Banana.Prim.Types (Node (P), Pulse (..), mkWeakNodeValue, printNode)
 import Reactive.Banana.Type.Graph (Graph)
 import qualified Reactive.Banana.Type.Graph as Graph
 import Reactive.Banana.Type.Ref
@@ -21,20 +19,9 @@ import System.Mem.Weak
     Accumulate dependency information for nodes
 ------------------------------------------------------------------------------}
 
--- | Add a new child node to a parent node.
-addChild :: Node -> Node -> DependencyBuilder
-addChild parent child = (Endo $ Graph.insertEdge (parent, child), mempty)
-
--- | Assign a new parent to a child node.
--- INVARIANT: The child may have only one parent node.
-changeParent :: Ref (Pulse a) -> Ref (Pulse b) -> DependencyBuilder
-changeParent child parent =
-  (mempty, [(P child, P parent)])
-
--- | Execute the information in the dependency builder
--- to change network topology.
-buildDependencies :: DependencyBuilder -> IO ()
-buildDependencies (Endo f, parents) = do
+-- | Execute the information in the dependency builder to change network topology.
+buildDependencies :: Endo (Graph Node) -> [(Node, Node)] -> IO ()
+buildDependencies (Endo f) parents = do
   sequence_ [x `doAddChild` y | (x, y) <- Graph.getEdges gr]
   sequence_ [x `doChangeParent` y | (P x, P y) <- parents]
   where

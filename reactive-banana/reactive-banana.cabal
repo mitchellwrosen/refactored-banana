@@ -89,6 +89,7 @@ Library
                         Reactive.Banana.Type.Graph,
                         Reactive.Banana.Type.OSet,
                         Reactive.Banana.Type.Ref,
+                        Reactive.Banana.Type.Time,
                         Reactive.Banana.Types
 
 Test-Suite tests

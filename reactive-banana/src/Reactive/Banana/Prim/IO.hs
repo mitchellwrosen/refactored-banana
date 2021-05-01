@@ -9,6 +9,7 @@ import Reactive.Banana.Prim.Evaluation (step)
 import Reactive.Banana.Prim.Plumbing
 import Reactive.Banana.Prim.Types
 import Reactive.Banana.Type.Ref
+import Reactive.Banana.Type.Time (agesAgo)
 
 {-----------------------------------------------------------------------------
     Primitives connecting to the outside world

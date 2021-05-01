@@ -12,6 +12,7 @@ import Reactive.Banana.Prim.Plumbing
 import Reactive.Banana.Prim.Types
 import qualified Reactive.Banana.Type.OSet as OSet
 import Reactive.Banana.Type.Ref (Ref)
+import Reactive.Banana.Type.Time (beginning, next)
 
 {-----------------------------------------------------------------------------
    Compilation
@@ -29,7 +30,7 @@ makeEmptyNetwork = do
 
 -- | Change a 'Network' of pulses and latches by
 -- executing a 'BuildIO' action.
-compile :: BuildIO a -> Network -> IO (a, Network)
+compile :: Build a -> Network -> IO (a, Network)
 compile m state1@Network {nAlwaysP} = do
   let time1 = nTime state1
       outputs1 = nOutputs state1
@@ -55,7 +56,7 @@ compile m state1@Network {nAlwaysP} = do
 --
 -- Note: The result is not computed lazily, for similar reasons
 -- that the 'sequence' function does not compute its result lazily.
-interpret :: (Ref (Pulse a) -> BuildIO (Ref (Pulse b))) -> [Maybe a] -> IO [Maybe b]
+interpret :: (Ref (Pulse a) -> Build (Ref (Pulse b))) -> [Maybe a] -> IO [Maybe b]
 interpret f xs = do
   o <- newIORef Nothing
   let network = do
@@ -83,7 +84,7 @@ interpret f xs = do
 -- Make sure that outputs are evaluated, but don't display their values.
 --
 -- Mainly useful for testing whether there are space leaks.
-runSpaceProfile :: Show b => (Ref (Pulse a) -> BuildIO (Ref (Pulse b))) -> [a] -> IO ()
+runSpaceProfile :: Show b => (Ref (Pulse a) -> Build (Ref (Pulse b))) -> [a] -> IO ()
 runSpaceProfile f xs = do
   let g = do
         (p1, fire) <- newInput

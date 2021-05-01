@@ -34,8 +34,8 @@ emptyGraph =
   Graph HashMap.empty HashMap.empty HashSet.empty
 
 -- | Insert an edge from the first node to the second node into the graph.
-insertEdge :: (Eq a, Hashable a) => (a, a) -> Graph a -> Graph a
-insertEdge (x, y) Graph {children, parents, nodes} =
+insertEdge :: (Eq a, Hashable a) => a -> a -> Graph a -> Graph a
+insertEdge x y Graph {children, parents, nodes} =
   Graph
     { children = HashMap.insertWith (++) x [y] children,
       parents = HashMap.insertWith (++) y [x] parents,

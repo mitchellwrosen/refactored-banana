@@ -15,21 +15,20 @@ main = test_space1
 {-----------------------------------------------------------------------------
     Functionality tests
 ------------------------------------------------------------------------------}
-test_accumL1 :: Ref (Pulse Int) -> BuildIO (Ref (Pulse Int))
+test_accumL1 :: Ref (Pulse Int) -> Build (Ref (Pulse Int))
 test_accumL1 p1 = do
   p2 <- mapP (+) p1
   (l1, _) <- accumL 0 p2
   let l2 = mapL const l1
-  p3 <- applyP l2 p1
-  return p3
+  applyP l2 p1
 
-test_recursion1 :: Ref (Pulse ()) -> BuildIO (Ref (Pulse Int))
+test_recursion1 :: Ref (Pulse ()) -> Build (Ref (Pulse Int))
 test_recursion1 p1 = mdo
   p2 <- applyP l2 p1
   p3 <- mapP (const (+ 1)) p2
   ~(l1, _) <- accumL (0 :: Int) p3
   let l2 = mapL const l1
-  return p2
+  pure p2
 
 -- test garbage collection
 

@@ -1,9 +1,7 @@
 module Reactive.Banana.Prim.Types
   ( Build,
-    BuildIO,
     BuildR,
     BuildW (..),
-    DependencyBuilder,
     EvalL,
     EvalO,
     EvalP,
@@ -18,12 +16,8 @@ module Reactive.Banana.Prim.Types
     Output (..),
     Pulse (..),
     Step,
-    Time,
-    agesAgo,
-    beginning,
     ground,
     mkWeakNodeValue,
-    next,
     printNode,
   )
 where
@@ -37,6 +31,7 @@ import qualified Data.Vault.Lazy as Vault
 import Reactive.Banana.Type.Graph (Graph)
 import Reactive.Banana.Type.OSet (OSet)
 import Reactive.Banana.Type.Ref
+import Reactive.Banana.Type.Time (Time)
 import System.IO.Unsafe
 import System.Mem.Weak
 
@@ -56,33 +51,36 @@ data Network = Network
 
 type EvalNetwork a = Network -> IO (a, Network)
 
-type Step = EvalNetwork (IO ())
+type Step =
+  EvalNetwork (IO ())
 
-type Build = RWIO BuildR BuildW
+type Build =
+  RWIO BuildR BuildW
 
 -- ( current time
 -- , pulse that always fires)
 type BuildR = (Time, Ref (Pulse ()))
 
-newtype BuildW = BuildW (DependencyBuilder, [Ref Output], IO (), Maybe (Build ()))
-
--- reader : current timestamp
--- writer : ( actions that change the network topology
---          , outputs to be added to the network
---          , late IO actions
---          , late build actions
---          )
+data BuildW = BuildW
+  { -- | New edges to add to the network topology (all insertEdge calls)
+    newEdges :: Endo (Graph Node),
+    -- | Parent changes to make to the network topology
+    changedParents :: [(Node, Node)],
+    -- | Outputs to be added to the network
+    newOutputs :: [Ref Output],
+    -- | Late IO actions
+    lateIO :: IO (),
+    -- | Late build actions
+    lateBuild :: Maybe (Build ())
+  }
 
 instance Semigroup BuildW where
-  BuildW x <> BuildW y = BuildW (x <> y)
+  BuildW x1 x2 x3 x4 x5 <> BuildW y1 y2 y3 y4 y5 =
+    BuildW (x1 <> y1) (x2 <> y2) (x3 <> y3) (x4 <> y4) (x5 <> y5)
 
 instance Monoid BuildW where
-  mempty = BuildW mempty
   mappend = (<>)
-
-type BuildIO = Build
-
-type DependencyBuilder = (Endo (Graph Node), [(Node, Node)])
+  mempty = BuildW mempty mempty mempty mempty mempty
 
 {-----------------------------------------------------------------------------
     Synonyms
@@ -92,7 +90,8 @@ type DependencyBuilder = (Endo (Graph Node), [(Node, Node)])
 type Level = Int
 
 ground :: Level
-ground = 0
+ground =
+  0
 
 {-----------------------------------------------------------------------------
     Pulse and Latch
@@ -133,9 +132,10 @@ data Node where
   O :: Ref Output -> Node
 
 instance Hashable Node where
-  hashWithSalt s (P x) = hashWithSalt s x
-  hashWithSalt s (L x) = hashWithSalt s x
-  hashWithSalt s (O x) = hashWithSalt s x
+  hashWithSalt s = \case
+    P x -> hashWithSalt s x
+    L x -> hashWithSalt s x
+    O x -> hashWithSalt s x
 
 instance Eq Node where
   P x == P y = equalRef x y
@@ -145,9 +145,10 @@ instance Eq Node where
 
 {-# INLINE mkWeakNodeValue #-}
 mkWeakNodeValue :: Node -> v -> IO (Weak v)
-mkWeakNodeValue (P x) = mkWeakRefValue x
-mkWeakNodeValue (L x) = mkWeakRefValue x
-mkWeakNodeValue (O x) = mkWeakRefValue x
+mkWeakNodeValue = \case
+  P x -> mkWeakRefValue x
+  L x -> mkWeakRefValue x
+  O x -> mkWeakRefValue x
 
 -- | Evaluation monads.
 type EvalPW = (IO (), [(Ref Output, EvalO)])
@@ -173,32 +174,6 @@ printNode :: Node -> IO String
 printNode (P p) = _nameP <$> readRef p
 printNode (L _) = return "L"
 printNode (O _) = return "O"
-
-{-----------------------------------------------------------------------------
-    Time monoid
-------------------------------------------------------------------------------}
-
--- | A timestamp local to this program run.
---
--- Useful e.g. for controlling cache validity.
-newtype Time = T Integer deriving (Eq, Ord, Show, Read)
-
--- | Before the beginning of time. See Note [TimeStamp]
-agesAgo :: Time
-agesAgo = T (-1)
-
-beginning :: Time
-beginning = T 0
-
-next :: Time -> Time
-next (T n) = T (n + 1)
-
-instance Semigroup Time where
-  T x <> T y = T (max x y)
-
-instance Monoid Time where
-  mappend = (<>)
-  mempty = beginning
 
 {-----------------------------------------------------------------------------
     Notes
