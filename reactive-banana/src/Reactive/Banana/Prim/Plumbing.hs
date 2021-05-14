@@ -1,9 +1,31 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-
-module Reactive.Banana.Prim.Plumbing where
+module Reactive.Banana.Prim.Plumbing
+  ( addChild,
+    addOutput,
+    alwaysP,
+    askTime,
+    buildLater,
+    buildLaterReadNow,
+    cachedLatch,
+    changeParent,
+    getValueL,
+    keepAlive,
+    liftBuildP,
+    liftIOLater,
+    neverP,
+    newLatch,
+    newPulse,
+    pureL,
+    readLatch,
+    readPulseP,
+    readPulseP',
+    rememberLatchUpdate,
+    rememberOutput,
+    runBuildIO,
+    runEvalP,
+    unwrapEvalP,
+    writePulseP,
+  )
+where
 
 import Control.Monad (join)
 import Control.Monad.IO.Class
@@ -47,7 +69,7 @@ newPulse name eval = do
 We assume that we do not have to calculate a pulse occurrence
 at the moment we create the pulse. Otherwise, we would have
 to recalculate the dependencies *while* doing evaluation;
-this is a recipe for desaster.
+this is a recipe for disaster.
 
 -}
 
@@ -59,7 +81,7 @@ neverP = do
     Pulse
       { _keyP = key,
         _seenP = agesAgo,
-        _evalP = return Nothing,
+        _evalP = pure Nothing,
         _childrenP = [],
         _parentsP = [],
         _levelP = ground,
@@ -67,71 +89,73 @@ neverP = do
       }
 
 -- | Return a 'Latch' that has a constant value
-pureL :: a -> Latch a
-pureL a =
+pureL :: a -> Ref (Latch a)
+pureL x =
   unsafePerformIO do
     newRef
       Latch
         { _seenL = beginning,
-          _valueL = a,
-          _evalL = return a
+          _valueL = x,
+          _evalL = pure x
         }
 
 -- | Make new 'Latch' that can be updated by a 'Pulse'
-newLatch :: forall a. a -> IO (Ref (Pulse a) -> Build (), Latch a)
-newLatch a = mdo
-  latch <-
+newLatch :: forall a. a -> IO (Ref (Pulse a) -> Build (), Ref (Latch a))
+newLatch x = mdo
+  latchRef <-
     newRef
       Latch
         { _seenL = beginning,
-          _valueL = a,
-          _evalL = do
-            Latch {_seenL, _valueL} <- liftIO (readRef latch)
-            RW.tell _seenL -- indicate timestamp
-            return _valueL -- indicate value
+          _valueL = x,
+          _evalL = evalLatch latchRef
         }
+
   let updateOn :: Ref (Pulse a) -> Build ()
-      updateOn p = do
-        lw <-
+      updateOn pulseRef = do
+        latchWriteRef <-
           liftIO do
-            w <- mkWeakRef latch
-            lw <-
+            weakLatchRef <- mkWeakRef latchRef
+            latchWriteRef <-
               newRef
                 LatchWrite
-                  { _evalLW = fromJust <$> readPulseP p,
-                    _latchLW = w
+                  { _evalLW = fromJust <$> readPulseP pulseRef,
+                    _latchLW = weakLatchRef
                   }
             -- writer is alive only as long as the latch is alive
-            latch `keepAlive` lw
-            pure lw
-        p `addChild` L lw
+            latchRef `keepAlive` latchWriteRef
+            pure latchWriteRef
+        pulseRef `addChild` L latchWriteRef
 
-  return (updateOn, latch)
+  pure (updateOn, latchRef)
+  where
+    evalLatch :: Ref (Latch a) -> EvalL a
+    evalLatch latchRef = do
+      Latch {_seenL, _valueL} <- liftIO (readRef latchRef)
+      RW.tell _seenL
+      pure _valueL
 
 -- | Make a new 'Latch' that caches a previous computation.
-cachedLatch :: EvalL a -> Latch a
+cachedLatch :: EvalL a -> Ref (Latch a)
 cachedLatch eval =
   unsafePerformIO mdo
-    latch <-
+    latchRef <-
       newRef
         Latch
           { _seenL = agesAgo,
             _valueL = error "Undefined value of a cached latch.",
             _evalL = do
-              Latch {..} <- liftIO $ readRef latch
+              latch@Latch {_seenL, _valueL} <- liftIO (readRef latchRef)
               -- calculate current value (lazy!) with timestamp
-              (a, time) <- RW.listen eval
+              (value, time) <- RW.listen eval
               liftIO $
                 if time <= _seenL
                   then pure _valueL -- return old value
                   else do
                     -- update value
-                    let _seenL = time
-                    let _valueL = a
-                    a `seq` writeRef latch Latch {..}
-                    pure a
+                    value `seq` writeRef latchRef latch {_seenL = time, _valueL = value}
+                    pure value
           }
-    return latch
+    pure latchRef
 
 -- | Add a new output that depends on a 'Pulse'.
 --
@@ -185,17 +209,14 @@ buildLaterReadNow m = do
   buildLater $ m >>= liftIO . writeIORef ref
   liftIO $ unsafeInterleaveIO $ readIORef ref
 
-getTimeB :: Build Time
-getTimeB = (\(x, _) -> x) <$> RW.ask
-
 alwaysP :: Build (Ref (Pulse ()))
 alwaysP = (\(_, x) -> x) <$> RW.ask
 
--- | @keepAlive p1 p2@ establishes a relationship between @p1@ and @p2@ such that if @p1@ is alive, @p2@ is also
+-- | @keepAlive x y@ establishes a relationship between @x@ and @y@ such that if @x@ is alive, @y@ is also
 -- considered alive (even if all references to it are dropped).
-keepAlive :: Ref child -> Ref parent -> IO ()
-keepAlive child parent =
-  void (mkWeakRefValue child parent)
+keepAlive :: Ref a -> b -> IO ()
+keepAlive x y =
+  void (mkWeakRefValue x y)
 
 addChild :: Ref (Pulse parent) -> Node -> Build ()
 addChild parent child =
@@ -217,12 +238,12 @@ liftIOLater x =
 
 -- | Evaluate a latch (-computation) at the latest time,
 -- but discard timestamp information.
-readLatch :: Latch a -> IO a
+readLatch :: Ref (Latch a) -> IO a
 readLatch latch = do
   Latch {_evalL} <- readRef latch
   fst <$> RW.runReaderWriterIO _evalL ()
 
-getValueL :: Latch a -> EvalL a
+getValueL :: Ref (Latch a) -> EvalL a
 getValueL latch = do
   Latch {_evalL} <- liftIO (readRef latch)
   _evalL
@@ -247,6 +268,11 @@ readPulseP :: Ref (Pulse a) -> EvalP (Maybe a)
 readPulseP p = do
   Pulse {_keyP} <- liftIO (readRef p)
   vault <- RWS.get
+  pure (join (Vault.lookup _keyP vault))
+
+readPulseP' :: Vault -> Ref (Pulse a) -> IO (Maybe a)
+readPulseP' vault pulseRef = do
+  Pulse {_keyP} <- liftIO (readRef pulseRef)
   pure (join (Vault.lookup _keyP vault))
 
 writePulseP :: Vault.Key (Maybe a) -> Maybe a -> EvalP ()

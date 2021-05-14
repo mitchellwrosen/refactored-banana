@@ -1,10 +1,25 @@
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Reactive.Banana.Prim.Combinators where
+module Reactive.Banana.Prim.Combinators
+  ( accumL,
+    applyL,
+    applyP,
+    executeP,
+    filterJustP,
+    mapL,
+    mapP,
+    switchL,
+    switchP,
+    tagFuture,
+    unionWithP,
+    unsafeMapIOP,
+  )
+where
 
 import Control.Monad
 import Control.Monad.IO.Class
+import qualified Control.Monad.Trans.RWSIO as RWS
 import Data.Function ((&))
 import Reactive.Banana.Prim.Plumbing
   ( addChild,
@@ -18,32 +33,43 @@ import Reactive.Banana.Prim.Plumbing
     newPulse,
     readLatch,
     readPulseP,
+    readPulseP',
   )
-import qualified Reactive.Banana.Prim.Plumbing (pureL)
 import Reactive.Banana.Prim.Types (Build, EvalP, Future, Latch, Node (P), Pulse)
 import Reactive.Banana.Type.Ref (Ref)
 
 {-----------------------------------------------------------------------------
     Combinators - basic
 ------------------------------------------------------------------------------}
-mapP :: (a -> b) -> Ref (Pulse a) -> Build (Ref (Pulse b))
+mapP :: forall a b. (a -> b) -> Ref (Pulse a) -> Build (Ref (Pulse b))
 mapP f p1 = do
-  p2 <- liftIO (newPulse "mapP" $ fmap f <$> readPulseP p1)
+  p2 <- liftIO (newPulse "mapP" eval)
   p1 `addChild` P p2
   return p2
+  where
+    eval :: EvalP (Maybe b)
+    eval = do
+      vault <- RWS.get
+      liftIO do
+        value <- readPulseP' vault p1
+        pure (f <$> value)
 
 -- | Tag a 'Pulse' with future values of a 'Latch'.
 --
 -- This is in contrast to 'applyP' which applies the current value
 -- of a 'Latch' to a pulse.
-tagFuture :: Latch a -> Ref (Pulse b) -> Build (Ref (Pulse (Future a)))
+tagFuture :: forall a b. Ref (Latch a) -> Ref (Pulse b) -> Build (Ref (Pulse (Future a)))
 tagFuture x p1 = do
-  p2 <-
-    liftIO do
-      newPulse "tagFuture" $
-        fmap (const (readLatch x)) <$> readPulseP p1
+  p2 <- liftIO (newPulse "tagFuture" eval)
   p1 `addChild` P p2
   return p2
+  where
+    eval :: EvalP (Maybe (Future a))
+    eval = do
+      vault <- RWS.get
+      liftIO do
+        value <- readPulseP' vault p1
+        pure (readLatch x <$ value)
 
 filterJustP :: Ref (Pulse (Maybe a)) -> Build (Ref (Pulse a))
 filterJustP p1 = do
@@ -75,24 +101,21 @@ unionWithP f px py = do
     eval Nothing Nothing = Nothing
 
 -- See note [LatchRecursion]
-applyP :: Latch (a -> b) -> Ref (Pulse a) -> Build (Ref (Pulse b))
+applyP :: Ref (Latch (a -> b)) -> Ref (Pulse a) -> Build (Ref (Pulse b))
 applyP f x = do
   p <- liftIO (newPulse "applyP" $ fmap <$> liftIO (readLatch f) <*> readPulseP x)
   x `addChild` P p
   return p
 
-pureL :: a -> Latch a
-pureL = Reactive.Banana.Prim.Plumbing.pureL
-
 -- specialization of   mapL f = applyL (pureL f)
-mapL :: (a -> b) -> Latch a -> Latch b
+mapL :: (a -> b) -> Ref (Latch a) -> Ref (Latch b)
 mapL f lx = cachedLatch $ f <$> getValueL lx
 
-applyL :: Latch (a -> b) -> Latch a -> Latch b
+applyL :: Ref (Latch (a -> b)) -> Ref (Latch a) -> Ref (Latch b)
 applyL lf lx =
   cachedLatch $ getValueL lf <*> getValueL lx
 
-accumL :: a -> Ref (Pulse (a -> a)) -> Build (Latch a, Ref (Pulse a))
+accumL :: a -> Ref (Pulse (a -> a)) -> Build (Ref (Latch a), Ref (Pulse a))
 accumL a p1 = do
   (updateOn, latch) <- liftIO (newLatch a)
   p2 <- applyP (mapL (&) latch) p1
@@ -100,7 +123,7 @@ accumL a p1 = do
   return (latch, p2)
 
 -- specialization of accumL
-stepperL :: a -> Ref (Pulse a) -> Build (Latch a)
+stepperL :: a -> Ref (Pulse a) -> Build (Ref (Latch a))
 stepperL a p = do
   (updateOn, x) <- liftIO (newLatch a)
   updateOn p
@@ -109,7 +132,7 @@ stepperL a p = do
 {-----------------------------------------------------------------------------
     Combinators - dynamic event switching
 ------------------------------------------------------------------------------}
-switchL :: Latch a -> Ref (Pulse (Latch a)) -> Build (Latch a)
+switchL :: Ref (Latch a) -> Ref (Pulse (Ref (Latch a))) -> Build (Ref (Latch a))
 switchL l pl = mdo
   x <- stepperL l pl
   pure (cachedLatch (getValueL x >>= getValueL))

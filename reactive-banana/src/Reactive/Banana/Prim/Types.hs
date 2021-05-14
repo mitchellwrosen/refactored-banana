@@ -7,8 +7,7 @@ module Reactive.Banana.Prim.Types
     EvalP,
     EvalPW,
     Future,
-    Latch' (..),
-    Latch,
+    Latch (..),
     LatchWrite (..),
     Level,
     Network (..),
@@ -24,15 +23,16 @@ where
 
 import Control.Monad.Trans.RWSIO
 import Control.Monad.Trans.ReaderWriterIO
-import Data.Hashable
-import Data.Semigroup
+import Data.Hashable (hashWithSalt)
+import Data.Semigroup (Endo)
 import Data.Vault.Lazy (Vault)
 import qualified Data.Vault.Lazy as Vault
+import Reactive.Banana.Prelude
 import Reactive.Banana.Type.Graph (Graph)
 import Reactive.Banana.Type.OSet (OSet)
 import Reactive.Banana.Type.Ref
 import Reactive.Banana.Type.Time (Time)
-import System.IO.Unsafe
+import System.IO.Unsafe (unsafePerformIO)
 import System.Mem.Weak
 
 {-----------------------------------------------------------------------------
@@ -49,7 +49,8 @@ data Network = Network
     nAlwaysP :: !(Ref (Pulse ()))
   }
 
-type EvalNetwork a = Network -> IO (a, Network)
+type EvalNetwork a =
+  Network -> IO (a, Network)
 
 type Step =
   EvalNetwork (IO ())
@@ -59,7 +60,8 @@ type Build =
 
 -- ( current time
 -- , pulse that always fires)
-type BuildR = (Time, Ref (Pulse ()))
+type BuildR =
+  (Time, Ref (Pulse ()))
 
 data BuildW = BuildW
   { -- | New edges to add to the network topology (all insertEdge calls)
@@ -107,11 +109,10 @@ data Pulse a = Pulse
   }
 
 instance Show (Ref (Pulse a)) where
-  show p = _nameP (unsafePerformIO $ readRef p) ++ " " ++ show (hashWithSalt 0 p)
+  show p =
+    _nameP (unsafePerformIO (readRef p)) ++ " " ++ show (hashWithSalt 0 p)
 
-type Latch a = Ref (Latch' a)
-
-data Latch' a = Latch
+data Latch a = Latch
   { _seenL :: !Time, -- Timestamp for the current value.
     _valueL :: a, -- Current value.
     _evalL :: EvalL a -- Recalculate current latch value.
@@ -119,7 +120,7 @@ data Latch' a = Latch
 
 data LatchWrite a = LatchWrite
   { _evalLW :: EvalP a, -- Calculate value to write.
-    _latchLW :: Weak (Latch a) -- Destination 'Latch' to write to.
+    _latchLW :: Weak (Ref (Latch a)) -- Destination latch to write to.
   }
 
 newtype Output = Output
@@ -151,29 +152,35 @@ mkWeakNodeValue = \case
   O x -> mkWeakRefValue x
 
 -- | Evaluation monads.
-type EvalPW = (IO (), [(Ref Output, EvalO)])
+type EvalPW =
+  (IO (), [(Ref Output, EvalO)])
 
-type EvalO = Future (IO ())
+type EvalO =
+  Future (IO ())
 
-type Future = IO
+type Future =
+  IO
 
 -- Note: For efficiency reasons, we unroll the monad transformer stack.
 -- type EvalP = RWST () Lazy.Vault EvalPW Build
-type EvalP = RWSIO BuildR (EvalPW, BuildW) Vault
+type EvalP =
+  RWSIO BuildR (EvalPW, BuildW) Vault
 
 -- writer : (latch updates, IO action)
 -- state  : current pulse values
 
 -- Computation with a timestamp that indicates the last time it was performed.
-type EvalL = RWIO () Time
+type EvalL =
+  RWIO () Time
 
 {-----------------------------------------------------------------------------
     Show functions for debugging
 ------------------------------------------------------------------------------}
 printNode :: Node -> IO String
-printNode (P p) = _nameP <$> readRef p
-printNode (L _) = return "L"
-printNode (O _) = return "O"
+printNode = \case
+  P p -> _nameP <$> readRef p
+  L _ -> pure "L"
+  O _ -> pure "O"
 
 {-----------------------------------------------------------------------------
     Notes

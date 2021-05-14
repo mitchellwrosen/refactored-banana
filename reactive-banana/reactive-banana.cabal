@@ -50,6 +50,7 @@ Library
                         GeneralizedNewtypeDeriving
                         LambdaCase
                         NamedFieldPuns
+                        RecursiveDo
                         ScopedTypeVariables
                         TupleSections
                         TypeSynonymInstances
@@ -84,7 +85,6 @@ Library
                         Reactive.Banana.Prim.Evaluation,
                         Reactive.Banana.Prim.IO,
                         Reactive.Banana.Prim.Plumbing,
-                        Reactive.Banana.Prim.Test,
                         Reactive.Banana.Prim.Types,
                         Reactive.Banana.Type.Graph,
                         Reactive.Banana.Type.OSet,

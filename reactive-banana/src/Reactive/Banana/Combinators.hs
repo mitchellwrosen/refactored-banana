@@ -13,7 +13,6 @@ module Reactive.Banana.Combinators
     -- ** Event and Behavior
     Event,
     Behavior,
-    interpret,
 
     -- ** First-order
 
@@ -87,16 +86,6 @@ import Reactive.Banana.Types
 {-----------------------------------------------------------------------------
     Interpetation
 ------------------------------------------------------------------------------}
-
--- | Interpret an event processing function.
--- Useful for testing.
---
--- Note: You can safely assume that this function is pure,
--- even though the type seems to suggest otherwise.
--- I'm really sorry about the extra 'IO', but it can't be helped.
--- See source code for the sordid details.
-interpret :: (Event a -> Moment (Event b)) -> [Maybe a] -> IO [Maybe b]
-interpret f xs = Prim.interpret (fmap unE . unM . f . E) xs
 
 -- FIXME: I would love to remove the 'IO' from the type signature,
 -- but unfortunately, it is possible that the argument to interpret

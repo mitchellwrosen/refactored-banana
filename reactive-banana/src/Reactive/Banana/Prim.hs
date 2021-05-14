@@ -24,10 +24,8 @@ module Reactive.Banana.Prim
     module Control.Monad.IO.Class,
 
     -- * Testing
-    interpret,
     mapAccumM,
     mapAccumM_,
-    runSpaceProfile,
 
     -- * IO
     newInput,
@@ -35,6 +33,7 @@ module Reactive.Banana.Prim
     readLatch,
 
     -- * Pulse
+    Pulse,
     neverP,
     alwaysP,
     mapP,
@@ -66,7 +65,7 @@ import Control.Monad.IO.Class
 import Reactive.Banana.Prim.Combinators
 import Reactive.Banana.Prim.Compile
 import Reactive.Banana.Prim.IO
-import Reactive.Banana.Prim.Plumbing (alwaysP, buildLater, buildLaterReadNow, liftIOLater, neverP, readLatch)
+import Reactive.Banana.Prim.Plumbing (alwaysP, buildLater, buildLaterReadNow, liftIOLater, neverP, pureL, readLatch)
 import Reactive.Banana.Prim.Types
 
 {-----------------------------------------------------------------------------

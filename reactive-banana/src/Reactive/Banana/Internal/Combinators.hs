@@ -13,7 +13,6 @@ import Control.Monad.Trans.Reader
 import Data.IORef
 import Reactive.Banana.Prim (Build, Future, Latch)
 import qualified Reactive.Banana.Prim as Prim
-import qualified Reactive.Banana.Prim.Compile as Prim.Compile
 import Reactive.Banana.Prim.Types (Pulse)
 import Reactive.Banana.Type.Ref (Ref)
 import System.IO.Unsafe (unsafePerformIO)
@@ -21,24 +20,11 @@ import System.IO.Unsafe (unsafePerformIO)
 {-----------------------------------------------------------------------------
     Types
 ------------------------------------------------------------------------------}
-type Behavior a = Moment (Latch a, Ref (Pulse ()))
+type Behavior a = Moment (Ref (Latch a), Ref (Pulse ()))
 
 type Event a = Moment (Ref (Pulse a))
 
 type Moment = ReaderT EventNetwork Build
-
-{-----------------------------------------------------------------------------
-    Interpretation
-------------------------------------------------------------------------------}
-interpret :: forall a b. (Event a -> Moment (Event b)) -> [Maybe a] -> IO [Maybe b]
-interpret f =
-  Prim.interpret \pulse -> runReaderT (g pulse) undefined
-  where
-    g :: Ref (Pulse a) -> Moment (Ref (Pulse b))
-    g pulse =
-      join (f (pure pulse))
-
--- Ignore any  addHandler  inside the  Moment
 
 {-----------------------------------------------------------------------------
     IO
@@ -55,13 +41,13 @@ data EventNetwork = EventNetwork
 compile :: Moment () -> IO EventNetwork
 compile setup = do
   actuated <- newIORef False -- flag to set running status
-  s <- newEmptyMVar -- setup callback machinery
+  networkVar <- newEmptyMVar -- setup callback machinery
   let whenFlag flag action = readIORef flag >>= \b -> when b action
       runStep f = whenFlag actuated $ do
-        s1 <- takeMVar s -- read and take lock
+        s1 <- takeMVar networkVar -- read and take lock
         -- pollValues <- sequence polls     -- poll mutable data
         (output, s2) <- f s1 -- calculate new state
-        putMVar s s2 -- write state
+        putMVar networkVar s2 -- write state
         output -- run IO actions afterwards
       eventNetwork =
         EventNetwork
@@ -71,9 +57,8 @@ compile setup = do
           }
 
   -- compile initial graph
-  emptyNetwork <- Prim.Compile.makeEmptyNetwork
-  (_output, s0) <- Prim.compile (runReaderT setup eventNetwork) emptyNetwork
-  putMVar s s0 -- set initial state
+  network0 <- Prim.compile (runReaderT setup eventNetwork)
+  putMVar networkVar network0 -- set initial state
   return eventNetwork
 
 fromAddHandler :: AddHandler a -> Moment (Event a)

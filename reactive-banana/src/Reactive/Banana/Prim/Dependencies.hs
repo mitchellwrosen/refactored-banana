@@ -6,9 +6,8 @@ module Reactive.Banana.Prim.Dependencies
   )
 where
 
-import Control.Monad
-import Data.Foldable (for_)
-import Data.Monoid
+import Data.Semigroup (Endo (..))
+import Reactive.Banana.Prelude
 import Reactive.Banana.Prim.Types (Node (P), Pulse (..), mkWeakNodeValue, printNode)
 import Reactive.Banana.Type.Graph (Graph)
 import qualified Reactive.Banana.Type.Graph as Graph
@@ -69,7 +68,7 @@ removeParents :: Ref (Pulse a) -> IO ()
 removeParents child = do
   c@Pulse {_parentsP} <- readRef child
   -- delete this child (and dead children) from all parent nodes
-  forM_ _parentsP $ \w -> do
+  for_ _parentsP \w -> do
     Just (P parent) <- deRefWeak w -- get parent node
     finalize w -- severe connection in garbage collector
     new <- filterM isGoodChild . _childrenP =<< readRef parent

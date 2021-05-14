@@ -23,7 +23,8 @@ import Reactive.Banana.Type.Ref
 import Reactive.Banana.Type.Time (next)
 import System.Mem.Weak
 
-type Queue = Q.MinPQueue Level
+type Queue =
+  Q.MinPQueue Level
 
 {-----------------------------------------------------------------------------
     Evaluation step
